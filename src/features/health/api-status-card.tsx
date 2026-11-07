@@ -5,12 +5,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { env } from '@/config/env';
 import { Spacing } from '@/constants/theme';
+import { useAuthStore } from '@/features/auth/auth-store';
 
 import { useApiHealth } from './use-api-health';
 
 /** Temporary Stage 1 check: proves the app can reach the API. */
 export function ApiStatusCard() {
   const { data, error, isPending } = useApiHealth();
+  const authStatus = useAuthStore((s) => s.status);
 
   let status = 'checking…';
   if (data) status = data.status;
@@ -22,6 +24,7 @@ export function ApiStatusCard() {
       <HintRow title="URL" hint={env.apiUrl} />
       <HintRow title="Environment" hint={env.appEnv} />
       <HintRow title="Status" hint={status} />
+      <HintRow title="Session" hint={authStatus} />
       {data && (
         <>
           <HintRow title="Database" hint={data.checks.database} />
