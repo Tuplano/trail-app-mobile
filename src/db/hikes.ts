@@ -1,0 +1,65 @@
+import { uuidv7 } from './ids';
+import type { Db } from './types';
+
+export type HikeStatus = 'recording' | 'paused' | 'finished';
+export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
+
+/** A hike as stored on the phone. Times are epoch milliseconds. */
+export type Hike = {
+  id: string;
+  title: string | null;
+  status: HikeStatus;
+  startedAt: number;
+  endedAt: number | null;
+  syncStatus: SyncStatus;
+  clientUpdatedAt: number;
+  distanceM: number;
+  elevationGainM: number;
+  movingTimeS: number;
+};
+
+type HikeRow = {
+  id: string;
+  title: string | null;
+  status: HikeStatus;
+  started_at: number;
+  ended_at: number | null;
+  sync_status: SyncStatus;
+  client_updated_at: number;
+  distance_m: number;
+  elevation_gain_m: number;
+  moving_time_s: number;
+};
+
+function toHike(row: HikeRow): Hike {
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    syncStatus: row.sync_status,
+    clientUpdatedAt: row.client_updated_at,
+    distanceM: row.distance_m,
+    elevationGainM: row.elevation_gain_m,
+    movingTimeS: row.moving_time_s,
+  };
+}
+
+/** Starts a new hike in the "recording" state. Works offline: the id is made here. */
+export async function createHike(db: Db, startedAt: number = Date.now()): Promise<Hike> {
+  const id = uuidv7(startedAt);
+  await db.runAsync('INSERT INTO hikes (id, started_at, client_updated_at) VALUES (?, ?, ?)', [
+    id,
+    startedAt,
+    startedAt,
+  ]);
+  const hike = await getHike(db, id);
+  if (!hike) throw new Error(`Hike ${id} was not saved`);
+  return hike;
+}
+
+export async function getHike(db: Db, id: string): Promise<Hike | null> {
+  const row = await db.getFirstAsync<HikeRow>('SELECT * FROM hikes WHERE id = ?', [id]);
+  return row ? toHike(row) : null;
+}
