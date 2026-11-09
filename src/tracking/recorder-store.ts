@@ -5,7 +5,12 @@ import { createHike, deleteHike, type HikeStatus, setHikeStatus } from '@/db/hik
 
 import { useLiveTrackStore } from './live-track-store';
 import { requireLocationAccess } from './location-permission';
-import { startLocationUpdates, stopLocationUpdates } from './location-task';
+import {
+  ensureLocationUpdates,
+  startLocationUpdates,
+  stopLocationUpdates,
+} from './location-task';
+import { findHikeToRestore } from './restore-recording';
 
 /** idle → recording ⇄ paused → finished (→ idle once the hike is saved). */
 export type RecorderStatus = 'idle' | HikeStatus;
@@ -29,6 +34,13 @@ type RecorderState = {
   endedAt: number | null;
   /** True while a change is being saved. Screens disable their buttons meanwhile. */
   saving: boolean;
+  /** True when this hike was picked back up after the app restarted. */
+  restored: boolean;
+  /**
+   * Picks up a hike the app was recording when it was closed or crashed.
+   * Called when the signed-in app opens; does nothing if a hike is already shown.
+   */
+  restore: () => Promise<void>;
   start: () => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
@@ -71,7 +83,7 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
     set({ saving: true });
     try {
       const patch = await save();
-      set({ ...patch, status: to, saving: false });
+      set({ ...patch, status: to, saving: false, restored: false });
     } catch (error) {
       set({ saving: false });
       throw error;
@@ -90,6 +102,49 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
     startedAt: null,
     endedAt: null,
     saving: false,
+    restored: false,
+
+    restore: async () => {
+      const { status, saving } = get();
+      if (status !== 'idle' || saving) return; // a hike is already on screen
+      set({ saving: true });
+      try {
+        const db = await getDb();
+        const hike = await findHikeToRestore(db);
+        if (!hike) {
+          await stopGpsQuietly(); // GPS left running with no hike to save to
+          return;
+        }
+
+        let resumed: HikeStatus = hike.status;
+        if (hike.status === 'recording') {
+          try {
+            await requireLocationAccess();
+            await ensureLocationUpdates();
+          } catch (error) {
+            // GPS can't run (e.g. location was turned off while the app was
+            // closed). Say so honestly: pause the hike, and the screen shows
+            // how to fix access and Resume.
+            console.warn('Could not restart GPS for the restored hike', error);
+            await setHikeStatus(db, hike.id, 'paused');
+            resumed = 'paused';
+          }
+        } else {
+          await stopGpsQuietly();
+        }
+
+        useLiveTrackStore.getState().update(hike.stats, hike.path);
+        set({
+          status: resumed,
+          hikeId: hike.id,
+          startedAt: hike.startedAt,
+          endedAt: null,
+          restored: true,
+        });
+      } finally {
+        set({ saving: false });
+      }
+    },
 
     start: () =>
       moveTo('recording', async () => {
@@ -140,7 +195,7 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
     reset: () => {
       const { status } = get();
       if (!canTransition(status, 'idle')) throw new Error(`Recorder cannot go from ${status} to idle`);
-      set({ status: 'idle', hikeId: null, startedAt: null, endedAt: null });
+      set({ status: 'idle', hikeId: null, startedAt: null, endedAt: null, restored: false });
     },
   };
 });

@@ -1,12 +1,13 @@
-import { getHike } from '@/db/hikes';
+import { createHike, getHike, setHikeStatus } from '@/db/hikes';
 import { prepareDatabase } from '@/db/migrations';
 import { createTestDb } from '@/db/__tests__/test-db';
+import { addTrackPoints } from '@/db/track-points';
 import type { Db } from '@/db/types';
 
 import { EMPTY_STATS } from '../hike-stats';
 import { useLiveTrackStore } from '../live-track-store';
 import { LocationPermissionError, requireLocationAccess } from '../location-permission';
-import { startLocationUpdates, stopLocationUpdates } from '../location-task';
+import { ensureLocationUpdates, startLocationUpdates, stopLocationUpdates } from '../location-task';
 import { canTransition, useRecorderStore } from '../recorder-store';
 
 // The recorder saves to a real in-memory SQLite database (see db/__tests__/test-db.ts).
@@ -21,11 +22,13 @@ jest.mock('../location-permission', () => ({
   requireLocationAccess: jest.fn(),
 }));
 jest.mock('../location-task', () => ({
+  ensureLocationUpdates: jest.fn(),
   startLocationUpdates: jest.fn(),
   stopLocationUpdates: jest.fn(),
 }));
 
 const askPermission = jest.mocked(requireLocationAccess);
+const ensureGps = jest.mocked(ensureLocationUpdates);
 const startGps = jest.mocked(startLocationUpdates);
 const stopGps = jest.mocked(stopLocationUpdates);
 
@@ -162,5 +165,76 @@ describe('recorder store', () => {
     mockDb = Promise.reject(new Error('disk full'));
     await expect(recorder().start()).rejects.toThrow('disk full');
     expect(recorder()).toMatchObject({ status: 'idle', hikeId: null, saving: false });
+  });
+});
+
+describe('restoring after the app restarts', () => {
+  /** A hike left in the database by an app that was killed mid-hike. */
+  async function leftBehind(status: 'recording' | 'paused') {
+    const db = await mockDb;
+    const hike = await createHike(db, 1_000_000);
+    await addTrackPoints(db, hike.id, [
+      { recordedAt: 1_000_000, lat: 14.6, lng: 121.0, altitudeM: 100 },
+      { recordedAt: 1_010_000, lat: 14.6001, lng: 121.0, altitudeM: 100 },
+    ]);
+    if (status === 'paused') await setHikeStatus(db, hike.id, 'paused');
+    return hike;
+  }
+
+  it('picks a recording hike back up: screen, stats, map and GPS', async () => {
+    const hike = await leftBehind('recording');
+
+    await recorder().restore();
+
+    expect(recorder()).toMatchObject({
+      status: 'recording',
+      hikeId: hike.id,
+      startedAt: 1_000_000,
+      endedAt: null,
+      restored: true,
+      saving: false,
+    });
+    expect(ensureGps).toHaveBeenCalled();
+    expect(useLiveTrackStore.getState().stats.pointCount).toBe(2);
+    expect(useLiveTrackStore.getState().path).toHaveLength(2);
+  });
+
+  it('restores a paused hike as paused, with GPS off', async () => {
+    await leftBehind('paused');
+    await recorder().restore();
+    expect(recorder()).toMatchObject({ status: 'paused', restored: true });
+    expect(stopGps).toHaveBeenCalled();
+    expect(ensureGps).not.toHaveBeenCalled();
+  });
+
+  it('pauses the hike if GPS can no longer run', async () => {
+    const hike = await leftBehind('recording');
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    askPermission.mockRejectedValue(new LocationPermissionError('foreground-blocked'));
+
+    await recorder().restore();
+
+    expect(recorder().status).toBe('paused');
+    expect((await getHike(await mockDb, hike.id))?.status).toBe('paused');
+  });
+
+  it('stays idle with no unfinished hike, and stops stray GPS', async () => {
+    await recorder().restore();
+    expect(recorder()).toMatchObject({ status: 'idle', hikeId: null, restored: false });
+    expect(stopGps).toHaveBeenCalled();
+  });
+
+  it('leaves a hike already on screen alone', async () => {
+    await recorder().start();
+    const { hikeId } = recorder();
+    await recorder().restore();
+    expect(recorder()).toMatchObject({ hikeId, restored: false });
+  });
+
+  it('clears the restored note on the next change', async () => {
+    await leftBehind('recording');
+    await recorder().restore();
+    await recorder().pause();
+    expect(recorder().restored).toBe(false);
   });
 });

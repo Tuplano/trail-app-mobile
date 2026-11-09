@@ -27,12 +27,20 @@ const COPY: Record<RecorderStatus, { title: string; body: string }> = {
   finished: { title: 'Hike saved', body: 'Saved on this phone. It uploads once you have signal.' },
 };
 
+/** Shown instead when the hike was picked back up after the app closed. */
+const RESTORED_BODY: Partial<Record<RecorderStatus, string>> = {
+  recording:
+    'The app closed during your hike, so recording picked up where it left off. Any gap shows as a straight line.',
+  paused: 'The app closed during your hike. Resume when you set off again, or finish the hike.',
+};
+
 export default function RecordScreen() {
   const colors = useColors();
   const status = useRecorderStore((s) => s.status);
   const saving = useRecorderStore((s) => s.saving);
   const startedAt = useRecorderStore((s) => s.startedAt);
   const endedAt = useRecorderStore((s) => s.endedAt);
+  const restored = useRecorderStore((s) => s.restored);
   const stats = useLiveTrackStore((s) => s.stats);
   const path = useLiveTrackStore((s) => s.path);
   const location = useLocationAccess();
@@ -85,7 +93,7 @@ export default function RecordScreen() {
           />
           <Text variant="heading">{COPY[status].title}</Text>
         </View>
-        <Text color="muted">{COPY[status].body}</Text>
+        <Text color="muted">{(restored && RESTORED_BODY[status]) || COPY[status].body}</Text>
       </View>
 
       {status !== 'idle' && (

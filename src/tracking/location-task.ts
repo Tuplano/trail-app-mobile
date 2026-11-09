@@ -47,6 +47,17 @@ export async function startLocationUpdates(): Promise<void> {
   });
 }
 
+/**
+ * Starts GPS unless it's already running. After the app is killed, Android
+ * may have kept the GPS service alive (it's set not to stop with the app),
+ * or may have stopped it; this covers both.
+ */
+export async function ensureLocationUpdates(): Promise<void> {
+  if (!(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK))) {
+    await startLocationUpdates();
+  }
+}
+
 /** Stops GPS. Safe to call when it isn't running. */
 export async function stopLocationUpdates(): Promise<void> {
   if (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK)) {

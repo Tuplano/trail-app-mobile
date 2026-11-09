@@ -78,6 +78,24 @@ export async function getRecordingHike(
 }
 
 /**
+ * Hikes that were never finished (recording or paused), newest first. Normally
+ * at most one; more only if the app was killed mid-hike in the past.
+ */
+export async function getUnfinishedHikes(
+  db: Db,
+): Promise<{ id: string; status: 'recording' | 'paused'; startedAt: number }[]> {
+  const rows = await db.getAllAsync<{
+    id: string;
+    status: 'recording' | 'paused';
+    started_at: number;
+  }>(
+    `SELECT id, status, started_at FROM hikes
+     WHERE status IN ('recording', 'paused') ORDER BY started_at DESC`,
+  );
+  return rows.map((row) => ({ id: row.id, status: row.status, startedAt: row.started_at }));
+}
+
+/**
  * Saves the live stats computed on the phone. Doesn't change
  * client_updated_at: stats follow from the points, which sync uploads anyway.
  */
