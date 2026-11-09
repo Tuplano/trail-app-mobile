@@ -63,3 +63,24 @@ export async function getHike(db: Db, id: string): Promise<Hike | null> {
   const row = await db.getFirstAsync<HikeRow>('SELECT * FROM hikes WHERE id = ?', [id]);
   return row ? toHike(row) : null;
 }
+
+/**
+ * Saves a recorder state change. Finishing also records when the hike ended.
+ * Which changes are allowed is the recorder's job (see recorder-store.ts).
+ */
+export async function setHikeStatus(
+  db: Db,
+  id: string,
+  status: HikeStatus,
+  now: number = Date.now(),
+): Promise<void> {
+  const result = await db.runAsync(
+    `UPDATE hikes
+     SET status = ?,
+         ended_at = CASE WHEN ? = 'finished' THEN ? ELSE ended_at END,
+         client_updated_at = ?
+     WHERE id = ?`,
+    [status, status, now, now, id],
+  );
+  if (result.changes === 0) throw new Error(`Hike ${id} not found`);
+}

@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 
+import { getDb } from '@/db/database';
+import { createHike, type HikeStatus, setHikeStatus } from '@/db/hikes';
+
 /** idle → recording ⇄ paused → finished (→ idle once the hike is saved). */
-export type RecorderStatus = 'idle' | 'recording' | 'paused' | 'finished';
+export type RecorderStatus = 'idle' | HikeStatus;
 
 const TRANSITIONS: Record<RecorderStatus, readonly RecorderStatus[]> = {
   idle: ['recording'],
@@ -17,33 +20,65 @@ export function canTransition(from: RecorderStatus, to: RecorderStatus): boolean
 type RecorderState = {
   status: RecorderStatus;
   hikeId: string | null;
-  start: (hikeId: string) => void;
-  pause: () => void;
-  resume: () => void;
-  finish: () => void;
+  /** True while a change is being saved. Screens disable their buttons meanwhile. */
+  saving: boolean;
+  start: () => Promise<void>;
+  pause: () => Promise<void>;
+  resume: () => Promise<void>;
+  finish: () => Promise<void>;
+  /** Back to idle after a finished hike. The hike itself stays saved. */
   reset: () => void;
 };
 
 /**
- * UI state for the hike recorder. Points and hikes live in SQLite (src/db);
- * this store only tracks which state the recorder is in.
+ * The hike recorder. Every change is saved to SQLite first and only then shown,
+ * so the screen never claims a state the database doesn't have. If saving
+ * fails, the recorder stays where it was and the action rejects.
  */
 export const useRecorderStore = create<RecorderState>()((set, get) => {
-  const moveTo = (to: RecorderStatus, patch: Partial<RecorderState> = {}) => {
-    const from = get().status;
-    if (!canTransition(from, to)) {
-      throw new Error(`Recorder cannot go from ${from} to ${to}`);
+  async function moveTo(
+    to: RecorderStatus,
+    save: () => Promise<Partial<RecorderState>>,
+  ): Promise<void> {
+    const { status, saving } = get();
+    // A second tap while the first is still saving (e.g. Start twice) would
+    // otherwise create two hikes.
+    if (saving) throw new Error('The recorder is still saving the last change');
+    if (!canTransition(status, to)) throw new Error(`Recorder cannot go from ${status} to ${to}`);
+
+    set({ saving: true });
+    try {
+      const patch = await save();
+      set({ ...patch, status: to, saving: false });
+    } catch (error) {
+      set({ saving: false });
+      throw error;
     }
-    set({ status: to, ...patch });
+  }
+
+  const saveStatus = (to: HikeStatus) => async () => {
+    const { hikeId } = get();
+    if (!hikeId) throw new Error('No hike is being recorded');
+    await setHikeStatus(await getDb(), hikeId, to);
+    return {};
   };
 
   return {
     status: 'idle',
     hikeId: null,
-    start: (hikeId) => moveTo('recording', { hikeId }),
-    pause: () => moveTo('paused'),
-    resume: () => moveTo('recording'),
-    finish: () => moveTo('finished'),
-    reset: () => moveTo('idle', { hikeId: null }),
+    saving: false,
+    start: () =>
+      moveTo('recording', async () => {
+        const hike = await createHike(await getDb());
+        return { hikeId: hike.id };
+      }),
+    pause: () => moveTo('paused', saveStatus('paused')),
+    resume: () => moveTo('recording', saveStatus('recording')),
+    finish: () => moveTo('finished', saveStatus('finished')),
+    reset: () => {
+      const { status } = get();
+      if (!canTransition(status, 'idle')) throw new Error(`Recorder cannot go from ${status} to idle`);
+      set({ status: 'idle', hikeId: null });
+    },
   };
 });

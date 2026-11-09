@@ -1,16 +1,16 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Text } from '@/components/ui/text';
 import { env } from '@/config/env';
-import { Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/features/auth/auth-store';
+import { radius } from '@/theme/tokens';
+import { useColors } from '@/theme/use-colors';
 
 import { useApiHealth } from './use-api-health';
 
 /** Temporary Stage 1 check: proves the app can reach the API. */
 export function ApiStatusCard() {
+  const colors = useColors();
   const { data, error, isPending } = useApiHealth();
   const authStatus = useAuthStore((s) => s.status);
 
@@ -19,33 +19,54 @@ export function ApiStatusCard() {
   else if (error) status = 'unreachable';
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">API</ThemedText>
-      <HintRow title="URL" hint={env.apiUrl} />
-      <HintRow title="Environment" hint={env.appEnv} />
-      <HintRow title="Status" hint={status} />
-      <HintRow title="Session" hint={authStatus} />
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line2 }]}>
+      <Text variant="subheading">API</Text>
+      <Row label="URL" value={env.apiUrl} />
+      <Row label="Environment" value={env.appEnv} />
+      <Row label="Status" value={status} />
+      <Row label="Session" value={authStatus} />
       {data && (
         <>
-          <HintRow title="Database" hint={data.checks.database} />
-          <HintRow title="Redis" hint={data.checks.redis} />
+          <Row label="Database" value={data.checks.database} />
+          <Row label="Redis" value={data.checks.redis} />
         </>
       )}
       {!isPending && error && (
-        <ThemedText type="small" themeColor="textSecondary">
+        <Text variant="small" color="muted2">
           {error.message}
-        </ThemedText>
+        </Text>
       )}
-    </ThemedView>
+    </View>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text variant="small" color="muted">
+        {label}
+      </Text>
+      <Text variant="small" style={styles.value}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+    gap: 12,
+    padding: 16,
+    borderRadius: radius.card,
+    borderWidth: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  value: {
+    flexShrink: 1,
+    textAlign: 'right',
   },
 });

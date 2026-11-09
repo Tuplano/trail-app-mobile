@@ -15,10 +15,10 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { queryClient } from '@/api/query-client';
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { useAuthStore } from '@/features/auth/auth-store';
 
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ fade: true, duration: 300 });
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -37,14 +37,19 @@ export default function RootLayout() {
 
   // Keep the native splash screen up until we know who is signed in and the
   // fonts are ready. If fonts fail, carry on with the system font.
-  if (authStatus === 'loading' || (!fontsLoaded && !fontError)) return null;
+  const ready = authStatus !== 'loading' && (fontsLoaded || !!fontError);
+
+  useEffect(() => {
+    if (ready) SplashScreen.hide();
+  }, [ready]);
+
+  if (!ready) return null;
 
   const signedIn = authStatus === 'signedIn';
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={colorScheme === 'light' ? DefaultTheme : DarkTheme}>
-        <AnimatedSplashOverlay />
         {/*
           Protected screens only exist while their guard is true. Opening one
           that doesn't exist (or signing in/out) redirects to the first screen

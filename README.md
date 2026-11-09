@@ -1,56 +1,40 @@
-# Welcome to your Expo app 👋
+# Trail App — mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The Android and iOS app for Trail App: record hikes offline, sync them to the API, and share them. Built with Expo (development build), React Native, and TypeScript. The website lives in its own repository.
 
-## Get started
+## Run it
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
+1. Install dependencies: `npm install`
+2. Start the API (`trail-app-api`) on port 3000.
+3. Build and install the app on an emulator or phone (first time, or after adding a library with native code):
 
    ```bash
-   npx expo start
+   npx expo run:android
    ```
 
-In the output, you'll find options to open the app in a
+4. After that, start Metro and open the installed app: `npm start`
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+In development the app finds the API on the same host as Metro, port 3000. To point it somewhere else, set `EXPO_PUBLIC_API_URL` in `.env.local` (see `.env.example`).
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Commands
 
-## Get a fresh project
+| Command | What it does |
+| --- | --- |
+| `npm start` | Start Metro for the installed development build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript |
+| `npm test` | Jest |
+| `npm run gen:api` | Regenerate `src/api/schema.d.ts` from the running API's OpenAPI spec |
 
-When you're ready, run:
+## Layout
 
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+| Folder | Holds |
+| --- | --- |
+| `src/app` | Screens (Expo Router: every file is a route) |
+| `src/features` | Feature code: auth, profile, health check |
+| `src/components/ui` | Reusable components (Button, Text, TextField, Screen…) |
+| `src/theme` | Design tokens (colors, fonts, radii) |
+| `src/api` | Typed API client |
+| `src/db` | SQLite database, migrations, and queries |
+| `src/tracking` | Hike recorder |
+| `src/sync` | Uploading hikes (Stage 4) |

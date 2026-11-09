@@ -1,54 +1,34 @@
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BrandMark } from '@/components/ui/brand-mark';
+import { Screen } from '@/components/ui/screen';
+import { Text } from '@/components/ui/text';
+import { useAuthStore } from '@/features/auth/auth-store';
 import { ApiStatusCard } from '@/features/health/api-status-card';
 
+/** Placeholder home: the hike history replaces it in Stage 4. */
 export default function HomeScreen() {
+  const displayName = useAuthStore((s) => s.user?.displayName);
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Trail
-          </ThemedText>
-        </ThemedView>
-
-        <ApiStatusCard />
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+    <Screen edges={['top']} contentStyle={styles.page}>
+      <BrandMark />
+      <Text variant="title" style={styles.greeting}>
+        {displayName ? `Hi, ${displayName}.` : 'Welcome.'}
+      </Text>
+      <ApiStatusCard />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+  page: {
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+    gap: 24,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
+  greeting: {
+    marginTop: 8,
   },
 });

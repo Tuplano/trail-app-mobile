@@ -20,10 +20,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.tuplano546.trailappmobile"
     },
-    "web": {
-      "output": "server",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       "expo-router",
       [
