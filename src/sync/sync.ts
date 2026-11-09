@@ -2,9 +2,11 @@ import * as Network from 'expo-network';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/database';
-import { getNextAttemptAt } from '@/db/outbox';
+import { resetFailedHikes } from '@/db/hikes';
+import { enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox';
 
 import { processOutbox, type UploadHandlers } from './process-outbox';
+import { loadSyncCounts, useSyncStatusStore } from './sync-status-store';
 import { uploadHike } from './upload-hike';
 
 /** What uploads each kind of outbox item. */
@@ -25,6 +27,17 @@ let running: Promise<void> | null = null;
 let runAgain = false;
 let started = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+const showStatus = useSyncStatusStore.getState().update;
+
+/** Copies the upload counts to the status store. Never throws: it's only a display. */
+async function refreshStatus(): Promise<void> {
+  try {
+    showStatus(await loadSyncCounts(await getDb()));
+  } catch (error) {
+    console.warn('Could not read the sync status', error);
+  }
+}
 
 function clearRetryTimer(): void {
   if (retryTimer) clearTimeout(retryTimer);
@@ -62,7 +75,11 @@ export function requestSync(): Promise<void> {
     try {
       do {
         runAgain = false;
-        if (!isOnline(await Network.getNetworkStateAsync())) return;
+        const online = isOnline(await Network.getNetworkStateAsync());
+        showStatus({ online });
+        if (!online) return;
+        await refreshStatus(); // show what's about to upload
+        showStatus({ syncing: true });
         const run = await processOutbox(await getDb(), HANDLERS);
         if (__DEV__) console.info('Sync run', run);
       } while (runAgain);
@@ -71,9 +88,24 @@ export function requestSync(): Promise<void> {
       console.warn('Sync failed', error);
     } finally {
       running = null;
+      showStatus({ syncing: false });
+      await refreshStatus(); // also when offline, so Home shows what's waiting
     }
   })();
   return running;
+}
+
+/**
+ * The hiker tapped Retry: put hikes the upload gave up on back in the queue,
+ * stop waiting out any backoff, and sync now. A hike the server rejected may
+ * be rejected again; then it goes back to 'failed' and Retry shows again.
+ */
+export async function retryUploads(): Promise<void> {
+  const db = await getDb();
+  await resetFailedHikes(db);
+  await enqueueUnsyncedHikes(db);
+  await makeAllDue(db);
+  await requestSync();
 }
 
 /**
@@ -86,6 +118,7 @@ export function startSync(): () => void {
   let wasOnline: boolean | null = null;
   const network = Network.addNetworkStateListener((state) => {
     const online = isOnline(state);
+    showStatus({ online });
     if (online && wasOnline !== true) requestSync(); // just came back online
     wasOnline = online;
   });

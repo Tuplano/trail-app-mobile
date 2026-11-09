@@ -2,31 +2,45 @@ import * as Network from 'expo-network';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/database';
-import { getNextAttemptAt } from '@/db/outbox';
+import { countFailedHikes, resetFailedHikes } from '@/db/hikes';
+import { countWaiting, enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox';
 
 import { processOutbox } from '../process-outbox';
-import { isOnline, requestSync, startSync } from '../sync';
+import { isOnline, requestSync, retryUploads, startSync } from '../sync';
+import { INITIAL_SYNC_SNAPSHOT, useSyncStatusStore } from '../sync-status-store';
 
 jest.mock('expo-network', () => ({
   getNetworkStateAsync: jest.fn(),
   addNetworkStateListener: jest.fn(),
 }));
 jest.mock('@/db/database', () => ({ getDb: jest.fn(async () => ({})) }));
-jest.mock('@/db/outbox', () => ({ getNextAttemptAt: jest.fn() }));
+jest.mock('@/db/hikes', () => ({ countFailedHikes: jest.fn(), resetFailedHikes: jest.fn() }));
+jest.mock('@/db/outbox', () => ({
+  countWaiting: jest.fn(),
+  enqueueUnsyncedHikes: jest.fn(),
+  getNextAttemptAt: jest.fn(),
+  makeAllDue: jest.fn(),
+}));
 jest.mock('../process-outbox', () => ({ processOutbox: jest.fn() }));
 jest.mock('../upload-hike', () => ({ uploadHike: jest.fn() }));
 
 const netState = jest.mocked(Network.getNetworkStateAsync);
 const process = jest.mocked(processOutbox);
 const nextAttempt = jest.mocked(getNextAttemptAt);
+const waiting = jest.mocked(countWaiting);
+const failedHikes = jest.mocked(countFailedHikes);
 const online = { isConnected: true, isInternetReachable: true };
 const offline = { isConnected: false, isInternetReachable: false };
+const status = () => useSyncStatusStore.getState();
 
 beforeEach(() => {
   jest.clearAllMocks();
   netState.mockResolvedValue(online);
   process.mockResolvedValue({ uploaded: 0, failed: 0, gaveUp: 0, skipped: 0 });
   nextAttempt.mockResolvedValue(null);
+  waiting.mockResolvedValue({ waiting: 0, backingOff: 0 });
+  failedHikes.mockResolvedValue(0);
+  status().update(INITIAL_SYNC_SNAPSHOT);
   jest.spyOn(console, 'info').mockImplementation(() => {});
 });
 
@@ -82,6 +96,48 @@ describe('requestSync', () => {
     await requestSync();
     await requestSync();
     expect(process).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('sync status', () => {
+  it('shows uploading during a run, then the counts left afterwards', async () => {
+    let seenDuringRun: unknown;
+    process.mockImplementationOnce(async () => {
+      seenDuringRun = { syncing: status().syncing, waiting: status().waiting };
+      waiting.mockResolvedValue({ waiting: 0, backingOff: 0 }); // the run uploaded it
+      return { uploaded: 1, failed: 0, gaveUp: 0, skipped: 0 };
+    });
+    waiting.mockResolvedValue({ waiting: 1, backingOff: 0 });
+
+    await requestSync();
+
+    expect(seenDuringRun).toEqual({ syncing: true, waiting: 1 });
+    expect(status()).toMatchObject({ syncing: false, waiting: 0, online: true });
+  });
+
+  it('shows what is waiting while offline', async () => {
+    netState.mockResolvedValue(offline);
+    waiting.mockResolvedValue({ waiting: 2, backingOff: 0 });
+    failedHikes.mockResolvedValue(1);
+
+    await requestSync();
+
+    expect(status()).toMatchObject({ online: false, waiting: 2, failed: 1, syncing: false });
+  });
+});
+
+describe('retryUploads', () => {
+  it('re-queues given-up hikes, cuts the backoff short, and syncs', async () => {
+    await retryUploads();
+
+    expect(resetFailedHikes).toHaveBeenCalled();
+    expect(enqueueUnsyncedHikes).toHaveBeenCalled();
+    expect(makeAllDue).toHaveBeenCalled();
+    expect(process).toHaveBeenCalledTimes(1);
+    // Reset before queuing, so the reset hikes are queued too.
+    expect(jest.mocked(resetFailedHikes).mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(enqueueUnsyncedHikes).mock.invocationCallOrder[0],
+    );
   });
 });
 

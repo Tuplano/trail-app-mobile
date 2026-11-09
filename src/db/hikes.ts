@@ -119,6 +119,28 @@ export async function setSyncStatus(db: Db, id: string, status: SyncStatus): Pro
   await db.runAsync('UPDATE hikes SET sync_status = ? WHERE id = ?', [status, id]);
 }
 
+/**
+ * Finished hikes the upload gave up on (the server rejected them). They are
+ * no longer in the outbox, so the sync status indicator counts them here.
+ */
+export async function countFailedHikes(db: Db): Promise<number> {
+  const row = await db.getFirstAsync<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM hikes WHERE status = 'finished' AND sync_status = 'failed'",
+  );
+  return row?.n ?? 0;
+}
+
+/**
+ * Puts hikes the upload gave up on back to 'pending', so they can be queued
+ * again. Used when the hiker taps Retry. Returns how many were reset.
+ */
+export async function resetFailedHikes(db: Db): Promise<number> {
+  const result = await db.runAsync(
+    "UPDATE hikes SET sync_status = 'pending' WHERE sync_status = 'failed'",
+  );
+  return result.changes;
+}
+
 /** Removes a hike and its points, e.g. one that never got GPS started. */
 export async function deleteHike(db: Db, id: string): Promise<void> {
   await db.runAsync('DELETE FROM hikes WHERE id = ?', [id]);

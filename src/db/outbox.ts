@@ -111,6 +111,36 @@ export async function countPending(db: Db): Promise<number> {
   return row?.n ?? 0;
 }
 
+/**
+ * How many items of one kind are waiting, and how many of those are backing
+ * off after a failed try (not due again until later). For the sync status
+ * indicator: "waiting" alone means "about to upload"; backing off means the
+ * last try didn't work.
+ */
+export async function countWaiting(
+  db: Db,
+  kind: OutboxKind,
+  now: number = Date.now(),
+): Promise<{ waiting: number; backingOff: number }> {
+  const row = await db.getFirstAsync<{ waiting: number; backing_off: number }>(
+    `SELECT COUNT(*) AS waiting,
+            COALESCE(SUM(attempts > 0 AND next_attempt_at > ?), 0) AS backing_off
+     FROM outbox WHERE kind = ?`,
+    [now, kind],
+  );
+  return { waiting: row?.waiting ?? 0, backingOff: row?.backing_off ?? 0 };
+}
+
+/**
+ * Makes every waiting item due now, cutting short any backoff wait. For the
+ * Retry button: the hiker asked to try again, so don't make them wait up to
+ * an hour. The attempt count is kept, so if it fails again the next wait is
+ * as long as it would have been.
+ */
+export async function makeAllDue(db: Db, now: number = Date.now()): Promise<void> {
+  await db.runAsync('UPDATE outbox SET next_attempt_at = ? WHERE next_attempt_at > ?', [now, now]);
+}
+
 /** Uploaded: the item leaves the queue. */
 export async function markDone(db: Db, id: number): Promise<void> {
   await db.runAsync('DELETE FROM outbox WHERE id = ?', [id]);

@@ -5,6 +5,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAuthStore } from '@/features/auth/auth-store';
 import { ApiStatusCard } from '@/features/health/api-status-card';
+import { SyncStatusCard } from '@/features/sync/sync-status-card';
 
 /** Placeholder home: the hike history replaces it in Stage 4. */
 export default function HomeScreen() {
@@ -16,6 +17,7 @@ export default function HomeScreen() {
       <Text variant="title" style={styles.greeting}>
         {displayName ? `Hi, ${displayName}.` : 'Welcome.'}
       </Text>
+      <SyncStatusCard />
       <ApiStatusCard />
     </Screen>
   );

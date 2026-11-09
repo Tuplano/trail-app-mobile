@@ -1,4 +1,13 @@
-import { createHike, deleteHike, getHike, getRecordingHike, setHikeStatus } from '../hikes';
+import {
+  countFailedHikes,
+  createHike,
+  deleteHike,
+  getHike,
+  getRecordingHike,
+  resetFailedHikes,
+  setHikeStatus,
+  setSyncStatus,
+} from '../hikes';
 import { prepareDatabase } from '../migrations';
 import { createTestDb } from './test-db';
 import { addTrackPoints, getTrackPoints } from '../track-points';
@@ -72,5 +81,23 @@ describe('deleteHike', () => {
     await deleteHike(db, id);
     expect(await getHike(db, id)).toBeNull();
     expect(await getTrackPoints(db, id)).toEqual([]);
+  });
+});
+
+describe('failed uploads', () => {
+  it('counts finished hikes the upload gave up on, and resets them for a retry', async () => {
+    const db = await freshDb();
+    const failed = await createHike(db, 1000);
+    await setHikeStatus(db, failed.id, 'finished', 2000);
+    await setSyncStatus(db, failed.id, 'failed');
+    const synced = await createHike(db, 3000);
+    await setHikeStatus(db, synced.id, 'finished', 4000);
+    await setSyncStatus(db, synced.id, 'synced');
+    expect(await countFailedHikes(db)).toBe(1);
+
+    expect(await resetFailedHikes(db)).toBe(1);
+    expect(await countFailedHikes(db)).toBe(0);
+    expect(await getHike(db, failed.id)).toMatchObject({ syncStatus: 'pending' });
+    expect(await getHike(db, synced.id)).toMatchObject({ syncStatus: 'synced' });
   });
 });

@@ -2,10 +2,12 @@ import { createHike, setHikeStatus, setSyncStatus } from '../hikes';
 import { prepareDatabase } from '../migrations';
 import {
   countPending,
+  countWaiting,
   enqueue,
   enqueueUnsyncedHikes,
   getDueItems,
   getNextAttemptAt,
+  makeAllDue,
   markDone,
   markFailed,
 } from '../outbox';
@@ -152,5 +154,35 @@ describe('getNextAttemptAt', () => {
     await enqueue(db, 'hike', 'a', 5000);
     await enqueue(db, 'hike', 'b', 3000);
     expect(await getNextAttemptAt(db)).toBe(3000);
+  });
+});
+
+describe('countWaiting', () => {
+  it('counts waiting items, and those backing off after a failed try', async () => {
+    const db = await freshDb();
+    expect(await countWaiting(db, 'hike', 1000)).toEqual({ waiting: 0, backingOff: 0 });
+
+    await enqueue(db, 'hike', 'fresh', 1000);
+    await enqueue(db, 'hike', 'failed-once', 1000);
+    const [, failed] = await getDueItems(db, 1000);
+    await markFailed(db, failed.id, 'offline', 61_000);
+
+    expect(await countWaiting(db, 'hike', 2000)).toEqual({ waiting: 2, backingOff: 1 });
+    // Once its wait is over it's due again, not backing off.
+    expect(await countWaiting(db, 'hike', 61_000)).toEqual({ waiting: 2, backingOff: 0 });
+  });
+});
+
+describe('makeAllDue', () => {
+  it('cuts short every backoff wait, keeping the attempt count', async () => {
+    const db = await freshDb();
+    await enqueue(db, 'hike', 'h1', 1000);
+    const [item] = await getDueItems(db, 1000);
+    await markFailed(db, item.id, 'offline', 3_600_000);
+
+    await makeAllDue(db, 2000);
+    expect(await getDueItems(db, 2000)).toEqual([
+      expect.objectContaining({ entityId: 'h1', attempts: 1, nextAttemptAt: 2000 }),
+    ]);
   });
 });
