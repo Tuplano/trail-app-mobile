@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { BatteryCard } from '@/features/record/battery-card';
 import { LiveStats } from '@/features/record/live-stats';
 import { LiveTrackMap } from '@/features/record/live-track-map';
 import { LocationAccessCard } from '@/features/record/location-access-card';
+import { useBatteryOptimization } from '@/features/record/use-battery-optimization';
 import { useLocationAccess } from '@/features/record/use-location-access';
 import { useNow } from '@/features/record/use-now';
 import { useLiveTrackStore } from '@/tracking/live-track-store';
@@ -34,6 +36,8 @@ export default function RecordScreen() {
   const stats = useLiveTrackStore((s) => s.stats);
   const path = useLiveTrackStore((s) => s.path);
   const location = useLocationAccess();
+  const batteryOptimized = useBatteryOptimization();
+  const [batteryDismissed, setBatteryDismissed] = useState(false);
   // Elapsed time includes pauses, like a stopwatch started at the trailhead.
   const now = useNow(status === 'recording' || status === 'paused');
   const elapsedS = startedAt ? ((endedAt ?? now) - startedAt) / 1000 : 0;
@@ -62,6 +66,10 @@ export default function RecordScreen() {
     (status === 'idle' || status === 'paused') && access !== null && access !== 'ready'
       ? access
       : null;
+  // Battery advice is optional, so it never blocks Start. It waits until
+  // location is sorted, so only one card shows at a time.
+  const showBatteryCard =
+    status === 'idle' && canGo && batteryOptimized === true && !batteryDismissed;
 
   return (
     // No scrolling: the map fills the free space, and maps fight scroll views over drags.
@@ -93,6 +101,7 @@ export default function RecordScreen() {
             onFix={location.fix}
           />
         )}
+        {showBatteryCard && <BatteryCard onDismiss={() => setBatteryDismissed(true)} />}
         <FormError message={error} />
         {status === 'idle' && !missingAccess && (
           <Button
