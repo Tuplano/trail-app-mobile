@@ -1,25 +1,25 @@
 import { getDueItems, markDone, markFailed, type OutboxItem, type OutboxKind } from '@/db/outbox';
 import type { Db } from '@/db/types';
 
-/** Uploads one outbox item. Throws if the upload failed; the item is then retried. */
+import { GiveUpError, retryDelayMs } from './retry';
+
+/**
+ * Uploads one outbox item. Throws if the upload failed: a GiveUpError when
+ * retrying can't help (the item is dropped), anything else to retry later.
+ */
 export type UploadHandler = (db: Db, item: OutboxItem) => Promise<void>;
 
 /** Which handler uploads each kind. A kind without one stays queued for now. */
 export type UploadHandlers = Partial<Record<OutboxKind, UploadHandler>>;
 
-/**
- * How long a failed item waits before it's tried again. A fixed wait for now;
- * task #32 replaces it with a backoff that waits longer after each failure.
- */
-export const RETRY_DELAY_MS = 60_000;
-
 const BATCH = 20;
 
-export type OutboxRun = { uploaded: number; failed: number; skipped: number };
+export type OutboxRun = { uploaded: number; failed: number; gaveUp: number; skipped: number };
 
 /**
  * Works once through the outbox items that are due: each one goes to the
- * handler for its kind; success removes it, failure schedules a retry.
+ * handler for its kind. Success removes it; a failure schedules a retry,
+ * waiting longer after each failure (see retryDelayMs); giving up removes it.
  * One failure doesn't stop the rest (a bad item mustn't block good ones).
  */
 export async function processOutbox(
@@ -27,7 +27,7 @@ export async function processOutbox(
   handlers: UploadHandlers,
   now: () => number = Date.now,
 ): Promise<OutboxRun> {
-  const run: OutboxRun = { uploaded: 0, failed: 0, skipped: 0 };
+  const run: OutboxRun = { uploaded: 0, failed: 0, gaveUp: 0, skipped: 0 };
   const seen = new Set<number>();
 
   // Items without a handler stay due, so page past them instead of re-reading them.
@@ -47,8 +47,15 @@ export async function processOutbox(
         await markDone(db, item.id);
         run.uploaded++;
       } catch (error) {
-        await markFailed(db, item.id, describe(error), now() + RETRY_DELAY_MS);
-        run.failed++;
+        if (error instanceof GiveUpError) {
+          console.warn(`Gave up uploading ${item.kind} ${item.entityId}`, error.reason);
+          await markDone(db, item.id);
+          run.gaveUp++;
+        } else {
+          const retryAt = now() + retryDelayMs(item.attempts);
+          await markFailed(db, item.id, describe(error), retryAt);
+          run.failed++;
+        }
       }
     }
   }

@@ -61,9 +61,10 @@ export async function enqueue(
 }
 
 /**
- * Queues every finished hike that still needs uploading: not synced yet and
- * with at least one GPS point (an empty hike has nothing worth sending).
- * Returns how many were newly queued.
+ * Queues every finished hike that still needs uploading: not uploaded yet
+ * ('pending', or 'syncing' if the app stopped mid-upload), not given up on
+ * ('failed'), and with at least one GPS point (an empty hike has nothing worth
+ * sending). Returns how many were newly queued.
  *
  * Run after finishing a hike and when the app opens. The second run catches
  * hikes whose queuing was missed, e.g. the app crashed right after Finish.
@@ -74,7 +75,7 @@ export async function enqueueUnsyncedHikes(db: Db, now: number = Date.now()): Pr
      SELECT 'hike', h.id, ?, ?
      FROM hikes h
      WHERE h.status = 'finished'
-       AND h.sync_status != 'synced'
+       AND h.sync_status IN ('pending', 'syncing')
        AND EXISTS (SELECT 1 FROM track_points p WHERE p.hike_id = h.id)
      ORDER BY h.started_at`,
     [now, now],
@@ -94,6 +95,14 @@ export async function getDueItems(
     [now, limit],
   );
   return rows.map(toItem);
+}
+
+/** When the soonest waiting item is next due, or null if the queue is empty. */
+export async function getNextAttemptAt(db: Db): Promise<number | null> {
+  const row = await db.getFirstAsync<{ next: number | null }>(
+    'SELECT MIN(next_attempt_at) AS next FROM outbox',
+  );
+  return row?.next ?? null;
 }
 
 /** Everything still waiting, due or not. For the sync status indicator. */

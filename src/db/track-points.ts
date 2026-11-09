@@ -79,6 +79,15 @@ export async function getTrackPath(db: Db, hikeId: string): Promise<PathPoint[]>
   }));
 }
 
+/** How many points the hike has. Seqs have no gaps, so they run 0 to count - 1. */
+export async function countTrackPoints(db: Db, hikeId: string): Promise<number> {
+  const row = await db.getFirstAsync<{ n: number }>(
+    'SELECT COUNT(*) AS n FROM track_points WHERE hike_id = ?',
+    [hikeId],
+  );
+  return row?.n ?? 0;
+}
+
 /** The hike's newest saved point, or null if it has none yet. */
 export async function getLastTrackPoint(db: Db, hikeId: string): Promise<TrackPoint | null> {
   const row = await db.getFirstAsync<TrackPointRow>(

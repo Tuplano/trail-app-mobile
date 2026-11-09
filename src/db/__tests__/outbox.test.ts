@@ -1,10 +1,11 @@
-import { createHike, setHikeStatus } from '../hikes';
+import { createHike, setHikeStatus, setSyncStatus } from '../hikes';
 import { prepareDatabase } from '../migrations';
 import {
   countPending,
   enqueue,
   enqueueUnsyncedHikes,
   getDueItems,
+  getNextAttemptAt,
   markDone,
   markFailed,
 } from '../outbox';
@@ -120,5 +121,36 @@ describe('enqueueUnsyncedHikes', () => {
     // Running it again (e.g. next app start) queues nothing new.
     expect(await enqueueUnsyncedHikes(db, 9500)).toBe(0);
     expect(await countPending(db)).toBe(1);
+  });
+});
+
+describe('enqueueUnsyncedHikes and upload status', () => {
+  async function finishedWithPoint(db: Awaited<ReturnType<typeof freshDb>>, startedAt: number) {
+    const hike = await createHike(db, startedAt);
+    await addTrackPoints(db, hike.id, [point]);
+    await setHikeStatus(db, hike.id, 'finished');
+    return hike;
+  }
+
+  it('re-queues a hike the app stopped uploading midway, but not one given up on', async () => {
+    const db = await freshDb();
+    const interrupted = await finishedWithPoint(db, 1000);
+    await setSyncStatus(db, interrupted.id, 'syncing');
+    const givenUp = await finishedWithPoint(db, 2000);
+    await setSyncStatus(db, givenUp.id, 'failed');
+
+    await enqueueUnsyncedHikes(db, 9000);
+    expect((await getDueItems(db, 9000)).map((i) => i.entityId)).toEqual([interrupted.id]);
+  });
+});
+
+describe('getNextAttemptAt', () => {
+  it('is when the soonest item is due, or null when nothing waits', async () => {
+    const db = await freshDb();
+    expect(await getNextAttemptAt(db)).toBeNull();
+
+    await enqueue(db, 'hike', 'a', 5000);
+    await enqueue(db, 'hike', 'b', 3000);
+    expect(await getNextAttemptAt(db)).toBe(3000);
   });
 });

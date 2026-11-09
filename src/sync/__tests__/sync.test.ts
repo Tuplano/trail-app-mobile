@@ -2,6 +2,7 @@ import * as Network from 'expo-network';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/database';
+import { getNextAttemptAt } from '@/db/outbox';
 
 import { processOutbox } from '../process-outbox';
 import { isOnline, requestSync, startSync } from '../sync';
@@ -11,18 +12,21 @@ jest.mock('expo-network', () => ({
   addNetworkStateListener: jest.fn(),
 }));
 jest.mock('@/db/database', () => ({ getDb: jest.fn(async () => ({})) }));
+jest.mock('@/db/outbox', () => ({ getNextAttemptAt: jest.fn() }));
 jest.mock('../process-outbox', () => ({ processOutbox: jest.fn() }));
 jest.mock('../upload-hike', () => ({ uploadHike: jest.fn() }));
 
 const netState = jest.mocked(Network.getNetworkStateAsync);
 const process = jest.mocked(processOutbox);
+const nextAttempt = jest.mocked(getNextAttemptAt);
 const online = { isConnected: true, isInternetReachable: true };
 const offline = { isConnected: false, isInternetReachable: false };
 
 beforeEach(() => {
   jest.clearAllMocks();
   netState.mockResolvedValue(online);
-  process.mockResolvedValue({ uploaded: 0, failed: 0, skipped: 0 });
+  process.mockResolvedValue({ uploaded: 0, failed: 0, gaveUp: 0, skipped: 0 });
+  nextAttempt.mockResolvedValue(null);
   jest.spyOn(console, 'info').mockImplementation(() => {});
 });
 
@@ -55,7 +59,7 @@ describe('requestSync', () => {
     process.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
-          finishFirst = () => resolve({ uploaded: 0, failed: 0, skipped: 0 });
+          finishFirst = () => resolve({ uploaded: 0, failed: 0, gaveUp: 0, skipped: 0 });
         }),
     );
 
@@ -116,5 +120,40 @@ describe('startSync', () => {
 
     stop();
     expect(appRemove).toHaveBeenCalled();
+  });
+});
+
+describe('retry timer', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('wakes sync up when the next failed item is due to be retried', async () => {
+    jest.useFakeTimers({ now: 1_000_000 });
+    jest.mocked(Network.addNetworkStateListener).mockReturnValue({ remove: jest.fn() } as never);
+    jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() } as never);
+    nextAttempt.mockResolvedValueOnce(1_000_000 + 120_000).mockResolvedValue(null);
+
+    const stop = startSync();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(process).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(119_000);
+    expect(process).toHaveBeenCalledTimes(1); // not yet
+    await jest.advanceTimersByTimeAsync(1_000);
+    expect(process).toHaveBeenCalledTimes(2); // retried on time
+
+    stop();
+  });
+
+  it('stops waking up once sync is stopped', async () => {
+    jest.useFakeTimers({ now: 1_000_000 });
+    jest.mocked(Network.addNetworkStateListener).mockReturnValue({ remove: jest.fn() } as never);
+    jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() } as never);
+    nextAttempt.mockResolvedValue(1_000_000 + 60_000);
+
+    const stop = startSync();
+    await jest.advanceTimersByTimeAsync(0);
+    stop();
+    await jest.advanceTimersByTimeAsync(120_000);
+    expect(process).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,13 +3,16 @@ import { toApiError } from '@/api/errors';
 import type { components } from '@/api/schema';
 import { getHike, type Hike, setSyncStatus } from '@/db/hikes';
 import type { OutboxItem } from '@/db/outbox';
-import { getTrackPoints } from '@/db/track-points';
+import { countTrackPoints, getTrackPoints } from '@/db/track-points';
 import type { Db } from '@/db/types';
+
+import { GiveUpError, isPermanent } from './retry';
 
 /** The API takes at most this many points per request. */
 export const POINTS_PER_CHUNK = 500;
 
 type UpsertHikeBody = components['schemas']['UpsertHikeDto'];
+type ErrorBody = components['schemas']['ErrorResponse'];
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -25,47 +28,66 @@ export function toUpsertBody(hike: Hike): UpsertHikeBody {
   };
 }
 
+/** Sends the hike's points from `fromSeq` to `toSeq` (inclusive), 500 per request. */
+async function sendPoints(db: Db, hikeId: string, fromSeq: number, toSeq: number): Promise<void> {
+  for (let seq = fromSeq; seq <= toSeq; ) {
+    const limit = Math.min(POINTS_PER_CHUNK, toSeq - seq + 1);
+    const points = await getTrackPoints(db, hikeId, seq, limit);
+    if (points.length === 0) return;
+    const sent = await api.POST('/api/v1/hikes/{id}/points', {
+      params: { path: { id: hikeId } },
+      body: { points },
+    });
+    if (!sent.data) throw toApiError(sent.error, sent.response);
+    seq += points.length;
+  }
+}
+
 /**
- * Uploads one finished hike, in the three steps the API asks for:
+ * Uploads one finished hike:
  *
  * 1. PUT /hikes/{id}: create (or update) the hike under the id made on the phone.
- * 2. POST /hikes/{id}/points: send the points in chunks of 500, oldest first.
- * 3. POST /hikes/{id}/finish: tell the server how many points there are, so it
- *    can check it has them all and work out the hike's stats.
+ * 2. GET /hikes/{id}/sync-status: ask how many points the server already has
+ *    (from an earlier, interrupted upload), and send only the rest, 500 at a time.
+ * 3. POST /hikes/{id}/finish: tell the server how many points there are. If it
+ *    still lacks some, it lists the missing ranges: send just those and finish
+ *    once more.
  *
- * Every step is safe to repeat (same id, points the server has are skipped,
- * repeating finish is fine), so after a failure the whole upload is simply
- * tried again. Throws on failure; the outbox then schedules a retry.
+ * Every step is safe to repeat. Throws on failure: GiveUpError when retrying
+ * can never work (the hike is marked 'failed'), anything else to retry later.
  */
 export async function uploadHike(db: Db, item: OutboxItem): Promise<void> {
   const hike = await getHike(db, item.entityId);
   if (!hike) return; // deleted on the phone: nothing to upload, so it's done
 
+  const params = { path: { id: hike.id } };
   await setSyncStatus(db, hike.id, 'syncing');
   try {
-    const path = { params: { path: { id: hike.id } } };
-
-    const created = await api.PUT('/api/v1/hikes/{id}', { ...path, body: toUpsertBody(hike) });
+    const created = await api.PUT('/api/v1/hikes/{id}', { params, body: toUpsertBody(hike) });
     if (!created.data) throw toApiError(created.error, created.response);
 
-    let totalPoints = 0;
-    for (let fromSeq = 0; ; fromSeq += POINTS_PER_CHUNK) {
-      const points = await getTrackPoints(db, hike.id, fromSeq, POINTS_PER_CHUNK);
-      if (points.length === 0) break;
-      const sent = await api.POST('/api/v1/hikes/{id}/points', { ...path, body: { points } });
-      if (!sent.data) throw toApiError(sent.error, sent.response);
-      totalPoints += points.length;
-      if (points.length < POINTS_PER_CHUNK) break;
-    }
+    const status = await api.GET('/api/v1/hikes/{id}/sync-status', { params });
+    if (!status.data) throw toApiError(status.error, status.response);
+    const totalPoints = await countTrackPoints(db, hike.id);
+    const resumeFrom = (status.data.highestContinuousSeq ?? -1) + 1;
+    await sendPoints(db, hike.id, resumeFrom, totalPoints - 1);
 
-    const finished = await api.POST('/api/v1/hikes/{id}/finish', {
-      ...path,
-      body: { totalPoints },
-    });
+    const finish = () =>
+      api.POST('/api/v1/hikes/{id}/finish', { params, body: { totalPoints } });
+    let finished = await finish();
+    const missing = (finished.error as ErrorBody | undefined)?.error.missingRanges;
+    if (!finished.data && missing?.length) {
+      for (const range of missing) await sendPoints(db, hike.id, range.from, range.to);
+      finished = await finish();
+    }
     if (!finished.data) throw toApiError(finished.error, finished.response);
 
     await setSyncStatus(db, hike.id, 'synced');
   } catch (error) {
+    if (isPermanent(error)) {
+      await setSyncStatus(db, hike.id, 'failed'); // won't be queued again
+      throw new GiveUpError(error);
+    }
     await setSyncStatus(db, hike.id, 'pending'); // the outbox retries it later
     throw error;
   }

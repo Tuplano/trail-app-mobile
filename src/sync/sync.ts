@@ -2,6 +2,7 @@ import * as Network from 'expo-network';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/database';
+import { getNextAttemptAt } from '@/db/outbox';
 
 import { processOutbox, type UploadHandlers } from './process-outbox';
 import { uploadHike } from './upload-hike';
@@ -22,6 +23,30 @@ export function isOnline(state: Network.NetworkState): boolean {
 
 let running: Promise<void> | null = null;
 let runAgain = false;
+let started = false;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearRetryTimer(): void {
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = null;
+}
+
+/**
+ * While the app is open, wakes sync up when the next failed item's wait is
+ * over, so it's retried on time instead of at the next trigger. (With the app
+ * in the background timers pause; returning to the app syncs anyway.)
+ */
+async function scheduleRetry(): Promise<void> {
+  clearRetryTimer();
+  if (!started) return;
+  const next = await getNextAttemptAt(await getDb());
+  // Nothing waiting, or only items no handler can upload yet (already due).
+  if (next == null || next <= Date.now()) return;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    requestSync();
+  }, next - Date.now());
+}
 
 /**
  * Uploads what's waiting in the outbox, if the phone is online. Safe to call
@@ -41,6 +66,7 @@ export function requestSync(): Promise<void> {
         const run = await processOutbox(await getDb(), HANDLERS);
         if (__DEV__) console.info('Sync run', run);
       } while (runAgain);
+      await scheduleRetry();
     } catch (error) {
       console.warn('Sync failed', error);
     } finally {
@@ -51,10 +77,12 @@ export function requestSync(): Promise<void> {
 }
 
 /**
- * Starts syncing automatically: now, whenever the internet comes back, and
- * whenever the app returns to the foreground. Returns a function that stops it.
+ * Starts syncing automatically: now, whenever the internet comes back,
+ * whenever the app returns to the foreground, and when a failed item is due
+ * to be retried. Returns a function that stops it.
  */
 export function startSync(): () => void {
+  started = true;
   let wasOnline: boolean | null = null;
   const network = Network.addNetworkStateListener((state) => {
     const online = isOnline(state);
@@ -67,6 +95,8 @@ export function startSync(): () => void {
   requestSync();
 
   return () => {
+    started = false;
+    clearRetryTimer();
     network.remove();
     app.remove();
   };
