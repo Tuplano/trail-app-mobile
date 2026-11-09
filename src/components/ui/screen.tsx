@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, type ViewStyle } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { type Edge, SafeAreaView } from 'react-native-safe-area-context';
 
 import { useColors } from '@/theme/use-colors';
@@ -9,10 +16,20 @@ type ScreenProps = {
   /** Tab screens skip the bottom edge: the tab bar already pads for it. */
   edges?: Edge[];
   contentStyle?: ViewStyle;
+  /**
+   * False for screens that fill the space themselves, e.g. with a map: a map
+   * inside a scroll view fights it over drag gestures.
+   */
+  scroll?: boolean;
 };
 
-/** Scrollable page on the design's background, kept clear of the keyboard. */
-export function Screen({ children, edges = ['top', 'bottom'], contentStyle }: ScreenProps) {
+/** Page on the design's background, kept clear of the keyboard. Scrolls by default. */
+export function Screen({
+  children,
+  edges = ['top', 'bottom'],
+  contentStyle,
+  scroll = true,
+}: ScreenProps) {
   const colors = useColors();
 
   return (
@@ -20,12 +37,16 @@ export function Screen({ children, edges = ['top', 'bottom'], contentStyle }: Sc
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={[styles.content, contentStyle]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {children}
-        </ScrollView>
+        {scroll ? (
+          <ScrollView
+            contentContainerStyle={[styles.content, contentStyle]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={[styles.flex, contentStyle]}>{children}</View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

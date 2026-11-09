@@ -6,6 +6,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo/ui": "~58.0.27",
+    "@maplibre/maplibre-react-native": "^11.5.1",
     "@tanstack/react-query": "^5.107.1",
     "expo": "~58.0.23",
     "expo-constants": "~58.0.15",

@@ -125,8 +125,11 @@ describe('saveLocations', () => {
     expect(second.stats!.distanceM).toBeCloseTo(22.2, 0);
     expect((await getHike(db, id))!.distanceM).toBeCloseTo(22.2, 0);
 
+    // The whole path comes back too, for the live map.
+    expect(second.path!.map((p) => p.recordedAt)).toEqual([1000, 2000, 3000]);
+
     // Nothing saved, nothing recomputed.
-    expect((await saveLocations(db, [fix(3000)])).stats).toBeNull();
+    expect(await saveLocations(db, [fix(3000)])).toEqual({ saved: 0, stats: null, path: null });
   });
 
   it('does nothing for an empty batch', async () => {

@@ -86,10 +86,13 @@ describe('recorder store', () => {
     expect(stopGps).toHaveBeenCalledTimes(2);
   });
 
-  it('starts each hike with empty stats', async () => {
-    useLiveTrackStore.setState({ stats: { ...EMPTY_STATS, pointCount: 42, distanceM: 900 } });
+  it('starts each hike with empty stats and an empty track', async () => {
+    useLiveTrackStore.setState({
+      stats: { ...EMPTY_STATS, pointCount: 1, distanceM: 900 },
+      path: [{ recordedAt: 1, lat: 1, lng: 1, altitudeM: null }],
+    });
     await recorder().start();
-    expect(useLiveTrackStore.getState().stats).toEqual(EMPTY_STATS);
+    expect(useLiveTrackStore.getState()).toMatchObject({ stats: EMPTY_STATS, path: [] });
   });
 
   it('remembers when the hike started and ended, for the clock', async () => {

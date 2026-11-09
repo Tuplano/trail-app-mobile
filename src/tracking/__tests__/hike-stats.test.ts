@@ -74,8 +74,9 @@ describe('refreshHikeStats', () => {
       [at(0, 0, 100), at(10, 10, 120), at(20, 20, 140)].map((p) => ({ ...p, accuracyM: 5 })),
     );
 
-    const stats = await refreshHikeStats(db, id);
+    const { stats, path } = await refreshHikeStats(db, id);
     expect(stats).toMatchObject({ pointCount: 3, elevationGainM: 40, movingTimeS: 20 });
+    expect(path.map((p) => p.altitudeM)).toEqual([100, 120, 140]);
     expect(await getHike(db, id)).toMatchObject({
       elevationGainM: 40,
       movingTimeS: 20,

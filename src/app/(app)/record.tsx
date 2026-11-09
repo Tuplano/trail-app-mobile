@@ -6,6 +6,7 @@ import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { LiveStats } from '@/features/record/live-stats';
+import { LiveTrackMap } from '@/features/record/live-track-map';
 import { LocationAccessCard } from '@/features/record/location-access-card';
 import { useLocationAccess } from '@/features/record/use-location-access';
 import { useNow } from '@/features/record/use-now';
@@ -31,6 +32,7 @@ export default function RecordScreen() {
   const startedAt = useRecorderStore((s) => s.startedAt);
   const endedAt = useRecorderStore((s) => s.endedAt);
   const stats = useLiveTrackStore((s) => s.stats);
+  const path = useLiveTrackStore((s) => s.path);
   const location = useLocationAccess();
   // Elapsed time includes pauses, like a stopwatch started at the trailhead.
   const now = useNow(status === 'recording' || status === 'paused');
@@ -62,7 +64,8 @@ export default function RecordScreen() {
       : null;
 
   return (
-    <Screen edges={['top']} contentStyle={styles.page}>
+    // No scrolling: the map fills the free space, and maps fight scroll views over drags.
+    <Screen edges={['top']} contentStyle={styles.page} scroll={false}>
       <Text variant="title">Record</Text>
 
       <View style={styles.status} accessibilityLiveRegion="polite">
@@ -77,6 +80,9 @@ export default function RecordScreen() {
         <Text color="muted">{COPY[status].body}</Text>
       </View>
 
+      {status !== 'idle' && (
+        <LiveTrackMap path={path} live={status === 'recording' || status === 'paused'} />
+      )}
       {status !== 'idle' && <LiveStats stats={stats} elapsedS={elapsedS} />}
 
       <View style={styles.actions}>
@@ -121,7 +127,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingHorizontal: 24,
     paddingBottom: 32,
-    gap: 24,
+    gap: 16,
   },
   status: {
     gap: 8,

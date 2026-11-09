@@ -20,8 +20,8 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
       return;
     }
     try {
-      const { stats } = await saveLocations(await getDb(), data?.locations ?? []);
-      if (stats) useLiveTrackStore.getState().setStats(stats);
+      const { stats, path } = await saveLocations(await getDb(), data?.locations ?? []);
+      if (stats && path) useLiveTrackStore.getState().update(stats, path);
     } catch (e) {
       console.warn('Could not save GPS points', e);
     }

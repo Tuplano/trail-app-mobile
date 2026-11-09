@@ -76,9 +76,14 @@ export function computeStats(points: readonly PathPoint[]): HikeStats {
  * Recomputes a hike's stats from all its saved points and stores them on the
  * hike. Recomputing (instead of adding to the old numbers) means they can
  * never drift from the points, even after a crash between two writes.
+ * Returns the path too, so the live map can draw it without reading it again.
  */
-export async function refreshHikeStats(db: Db, hikeId: string): Promise<HikeStats> {
-  const stats = computeStats(await getTrackPath(db, hikeId));
+export async function refreshHikeStats(
+  db: Db,
+  hikeId: string,
+): Promise<{ stats: HikeStats; path: PathPoint[] }> {
+  const path = await getTrackPath(db, hikeId);
+  const stats = computeStats(path);
   await setHikeStats(db, hikeId, stats);
-  return stats;
+  return { stats, path };
 }
