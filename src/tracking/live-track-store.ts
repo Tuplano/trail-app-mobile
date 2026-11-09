@@ -1,18 +1,21 @@
 import { create } from 'zustand';
 
+import { EMPTY_STATS, type HikeStats } from './hike-stats';
+
 type LiveTrackState = {
-  /** GPS points saved since this hike started (while the app has been running). */
-  pointCount: number;
-  addPoints: (count: number) => void;
+  /** The recording hike's stats, as of the last saved GPS point. */
+  stats: HikeStats;
+  setStats: (stats: HikeStats) => void;
   reset: () => void;
 };
 
 /**
  * What the Record screen shows about the track while recording. The database
- * is the real record; this is just a running count for the screen.
+ * is the real record (stats are saved on the hike); this store just lets the
+ * location task hand fresh numbers to the screen.
  */
 export const useLiveTrackStore = create<LiveTrackState>()((set) => ({
-  pointCount: 0,
-  addPoints: (count) => set((s) => ({ pointCount: s.pointCount + count })),
-  reset: () => set({ pointCount: 0 }),
+  stats: EMPTY_STATS,
+  setStats: (stats) => set({ stats }),
+  reset: () => set({ stats: EMPTY_STATS }),
 }));

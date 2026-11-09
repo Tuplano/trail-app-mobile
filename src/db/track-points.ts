@@ -61,6 +61,24 @@ export async function addTrackPoints(
   }
 }
 
+/** Just what stats need from a point: where, when and how high. */
+export type PathPoint = Pick<TrackPoint, 'recordedAt' | 'lat' | 'lng' | 'altitudeM'>;
+
+/** All of a hike's points in order, with only the columns stats need. */
+export async function getTrackPath(db: Db, hikeId: string): Promise<PathPoint[]> {
+  const rows = await db.getAllAsync<Pick<TrackPointRow, 'recorded_at' | 'lat' | 'lng' | 'altitude_m'>>(
+    `SELECT recorded_at, lat, lng, altitude_m
+     FROM track_points WHERE hike_id = ? ORDER BY seq`,
+    [hikeId],
+  );
+  return rows.map((row) => ({
+    recordedAt: row.recorded_at,
+    lat: row.lat,
+    lng: row.lng,
+    altitudeM: row.altitude_m,
+  }));
+}
+
 /** The hike's newest saved point, or null if it has none yet. */
 export async function getLastTrackPoint(db: Db, hikeId: string): Promise<TrackPoint | null> {
   const row = await db.getFirstAsync<TrackPointRow>(

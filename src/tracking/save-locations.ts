@@ -4,6 +4,7 @@ import { getRecordingHike } from '@/db/hikes';
 import { addTrackPoints, getLastTrackPoint, type NewTrackPoint } from '@/db/track-points';
 import type { Db } from '@/db/types';
 
+import { type HikeStats, refreshHikeStats } from './hike-stats';
 import { filterPoints } from './point-filter';
 
 /** A fix from expo-location in the shape track_points stores. */
@@ -30,20 +31,31 @@ export function toTrackPoint(location: LocationObject): NewTrackPoint {
  * somewhere else entirely. So are inaccurate fixes and ones too close to the
  * last saved point.
  */
-export async function saveLocations(db: Db, locations: readonly LocationObject[]): Promise<number> {
-  if (locations.length === 0) return 0;
+export async function saveLocations(
+  db: Db,
+  locations: readonly LocationObject[],
+): Promise<SaveResult> {
+  const nothing: SaveResult = { saved: 0, stats: null };
+  if (locations.length === 0) return nothing;
   const hike = await getRecordingHike(db);
-  if (!hike) return 0;
+  if (!hike) return nothing;
 
   const fresh = locations
     .filter((l) => l.timestamp >= hike.startedAt)
     .sort((a, b) => a.timestamp - b.timestamp)
     .map(toTrackPoint);
-  if (fresh.length === 0) return 0;
+  if (fresh.length === 0) return nothing;
 
   // Drop inaccurate fixes and GPS wobble (see point-filter.ts).
   const points = filterPoints(fresh, await getLastTrackPoint(db, hike.id));
-  if (points.length === 0) return 0;
+  if (points.length === 0) return nothing;
   await addTrackPoints(db, hike.id, points);
-  return points.length;
+  return { saved: points.length, stats: await refreshHikeStats(db, hike.id) };
 }
+
+export type SaveResult = {
+  /** Points saved from this batch. */
+  saved: number;
+  /** The hike's updated stats, or null when nothing was saved. */
+  stats: HikeStats | null;
+};

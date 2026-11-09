@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { LiveStats } from '@/features/record/live-stats';
 import { LocationAccessCard } from '@/features/record/location-access-card';
 import { useLocationAccess } from '@/features/record/use-location-access';
+import { useNow } from '@/features/record/use-now';
 import { useLiveTrackStore } from '@/tracking/live-track-store';
 import { LocationPermissionError } from '@/tracking/location-permission';
 import { type RecorderStatus, useRecorderStore } from '@/tracking/recorder-store';
@@ -26,8 +28,13 @@ export default function RecordScreen() {
   const colors = useColors();
   const status = useRecorderStore((s) => s.status);
   const saving = useRecorderStore((s) => s.saving);
-  const pointCount = useLiveTrackStore((s) => s.pointCount);
+  const startedAt = useRecorderStore((s) => s.startedAt);
+  const endedAt = useRecorderStore((s) => s.endedAt);
+  const stats = useLiveTrackStore((s) => s.stats);
   const location = useLocationAccess();
+  // Elapsed time includes pauses, like a stopwatch started at the trailhead.
+  const now = useNow(status === 'recording' || status === 'paused');
+  const elapsedS = startedAt ? ((endedAt ?? now) - startedAt) / 1000 : 0;
   const [error, setError] = useState<string | null>(null);
   const { start, pause, resume, finish, reset } = useRecorderStore.getState();
 
@@ -68,12 +75,9 @@ export default function RecordScreen() {
           <Text variant="heading">{COPY[status].title}</Text>
         </View>
         <Text color="muted">{COPY[status].body}</Text>
-        {(status === 'recording' || status === 'paused') && (
-          <Text variant="small" color="muted">
-            {pointCount === 1 ? '1 GPS point saved' : `${pointCount} GPS points saved`}
-          </Text>
-        )}
       </View>
+
+      {status !== 'idle' && <LiveStats stats={stats} elapsedS={elapsedS} />}
 
       <View style={styles.actions}>
         {missingAccess && (

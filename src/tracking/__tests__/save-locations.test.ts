@@ -1,11 +1,16 @@
 import type { LocationObject } from 'expo-location';
 
-import { createHike, setHikeStatus } from '@/db/hikes';
+import { createHike, getHike, setHikeStatus } from '@/db/hikes';
 import { prepareDatabase } from '@/db/migrations';
 import { createTestDb } from '@/db/__tests__/test-db';
 import { getTrackPoints } from '@/db/track-points';
+import type { Db } from '@/db/types';
 
 import { saveLocations, toTrackPoint } from '../save-locations';
+
+/** How many points a call saved. */
+const saved = async (db: Db, locations: LocationObject[]) =>
+  (await saveLocations(db, locations)).saved;
 
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
@@ -61,8 +66,8 @@ describe('saveLocations', () => {
     const { id } = await createHike(db, 500);
 
     // The OS can deliver a batch out of order.
-    expect(await saveLocations(db, [fix(3000), fix(1000), fix(2000)])).toBe(3);
-    expect(await saveLocations(db, [fix(4000)])).toBe(1);
+    expect(await saved(db, [fix(3000), fix(1000), fix(2000)])).toBe(3);
+    expect(await saved(db, [fix(4000)])).toBe(1);
 
     const points = await getTrackPoints(db, id);
     expect(points.map((p) => [p.seq, p.recordedAt])).toEqual([
@@ -75,11 +80,11 @@ describe('saveLocations', () => {
 
   it('drops fixes that arrive while no hike is recording', async () => {
     const db = await freshDb();
-    expect(await saveLocations(db, [fix(1000)])).toBe(0);
+    expect(await saved(db, [fix(1000)])).toBe(0);
 
     const { id } = await createHike(db, 500);
     await setHikeStatus(db, id, 'paused');
-    expect(await saveLocations(db, [fix(2000)])).toBe(0);
+    expect(await saved(db, [fix(2000)])).toBe(0);
     expect(await getTrackPoints(db, id)).toEqual([]);
   });
 
@@ -88,8 +93,8 @@ describe('saveLocations', () => {
     const { id } = await createHike(db, 10_000);
 
     // Android's "last known position", 9 minutes old, arrives with a fresh fix.
-    expect(await saveLocations(db, [fix(10_000 - 9 * 60_000), fix(12_000)])).toBe(1);
-    expect(await saveLocations(db, [fix(5_000)])).toBe(0);
+    expect(await saved(db, [fix(10_000 - 9 * 60_000), fix(12_000)])).toBe(1);
+    expect(await saved(db, [fix(5_000)])).toBe(0);
 
     const points = await getTrackPoints(db, id);
     expect(points.map((p) => [p.seq, p.recordedAt])).toEqual([[0, 12_000]]);
@@ -100,17 +105,33 @@ describe('saveLocations', () => {
     const { id } = await createHike(db, 500);
 
     const standingStill = (t: number) => fix(t, { latitude: 14.6, longitude: 121.0 });
-    expect(await saveLocations(db, [standingStill(1000), standingStill(2000)])).toBe(1);
+    expect(await saved(db, [standingStill(1000), standingStill(2000)])).toBe(1);
     // The next batch is compared with the last saved point, not just itself.
-    expect(await saveLocations(db, [standingStill(3000)])).toBe(0);
-    expect(await saveLocations(db, [fix(5000), fix(6000, { accuracy: 80 })])).toBe(1);
+    expect(await saved(db, [standingStill(3000)])).toBe(0);
+    expect(await saved(db, [fix(5000), fix(6000, { accuracy: 80 })])).toBe(1);
 
     expect((await getTrackPoints(db, id)).map((p) => p.recordedAt)).toEqual([1000, 5000]);
+  });
+
+  it("updates the hike's stats with each saved batch", async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 500);
+
+    const first = await saveLocations(db, [fix(1000), fix(2000)]);
+    expect(first.stats).toMatchObject({ pointCount: 2 });
+    expect(first.stats!.distanceM).toBeCloseTo(11.1, 0);
+
+    const second = await saveLocations(db, [fix(3000)]);
+    expect(second.stats!.distanceM).toBeCloseTo(22.2, 0);
+    expect((await getHike(db, id))!.distanceM).toBeCloseTo(22.2, 0);
+
+    // Nothing saved, nothing recomputed.
+    expect((await saveLocations(db, [fix(3000)])).stats).toBeNull();
   });
 
   it('does nothing for an empty batch', async () => {
     const db = await freshDb();
     await createHike(db);
-    expect(await saveLocations(db, [])).toBe(0);
+    expect(await saved(db, [])).toBe(0);
   });
 });

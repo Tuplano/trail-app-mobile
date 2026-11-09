@@ -24,6 +24,9 @@ export function canTransition(from: RecorderStatus, to: RecorderStatus): boolean
 type RecorderState = {
   status: RecorderStatus;
   hikeId: string | null;
+  /** When the hike started and finished (epoch ms), for the elapsed-time clock. */
+  startedAt: number | null;
+  endedAt: number | null;
   /** True while a change is being saved. Screens disable their buttons meanwhile. */
   saving: boolean;
   start: () => Promise<void>;
@@ -84,6 +87,8 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
   return {
     status: 'idle',
     hikeId: null,
+    startedAt: null,
+    endedAt: null,
     saving: false,
 
     start: () =>
@@ -100,7 +105,7 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
           throw error;
         }
         useLiveTrackStore.getState().reset();
-        return { hikeId: hike.id };
+        return { hikeId: hike.id, startedAt: hike.startedAt, endedAt: null };
       }),
 
     pause: () =>
@@ -126,15 +131,16 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
 
     finish: () =>
       moveTo('finished', async () => {
-        await setHikeStatus(await getDb(), currentHikeId(), 'finished');
+        const endedAt = Date.now();
+        await setHikeStatus(await getDb(), currentHikeId(), 'finished', endedAt);
         await stopGpsQuietly();
-        return {};
+        return { endedAt };
       }),
 
     reset: () => {
       const { status } = get();
       if (!canTransition(status, 'idle')) throw new Error(`Recorder cannot go from ${status} to idle`);
-      set({ status: 'idle', hikeId: null });
+      set({ status: 'idle', hikeId: null, startedAt: null, endedAt: null });
     },
   };
 });

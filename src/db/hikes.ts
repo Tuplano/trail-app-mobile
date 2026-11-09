@@ -77,6 +77,21 @@ export async function getRecordingHike(
   return row ? { id: row.id, startedAt: row.started_at } : null;
 }
 
+/**
+ * Saves the live stats computed on the phone. Doesn't change
+ * client_updated_at: stats follow from the points, which sync uploads anyway.
+ */
+export async function setHikeStats(
+  db: Db,
+  id: string,
+  stats: Pick<Hike, 'distanceM' | 'elevationGainM' | 'movingTimeS'>,
+): Promise<void> {
+  await db.runAsync(
+    'UPDATE hikes SET distance_m = ?, elevation_gain_m = ?, moving_time_s = ? WHERE id = ?',
+    [stats.distanceM, stats.elevationGainM, stats.movingTimeS, id],
+  );
+}
+
 /** Removes a hike and its points, e.g. one that never got GPS started. */
 export async function deleteHike(db: Db, id: string): Promise<void> {
   await db.runAsync('DELETE FROM hikes WHERE id = ?', [id]);

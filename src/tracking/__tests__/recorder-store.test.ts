@@ -3,6 +3,7 @@ import { prepareDatabase } from '@/db/migrations';
 import { createTestDb } from '@/db/__tests__/test-db';
 import type { Db } from '@/db/types';
 
+import { EMPTY_STATS } from '../hike-stats';
 import { useLiveTrackStore } from '../live-track-store';
 import { LocationPermissionError, requireLocationAccess } from '../location-permission';
 import { startLocationUpdates, stopLocationUpdates } from '../location-task';
@@ -85,10 +86,24 @@ describe('recorder store', () => {
     expect(stopGps).toHaveBeenCalledTimes(2);
   });
 
-  it('starts a fresh point count for each hike', async () => {
-    useLiveTrackStore.setState({ pointCount: 42 });
+  it('starts each hike with empty stats', async () => {
+    useLiveTrackStore.setState({ stats: { ...EMPTY_STATS, pointCount: 42, distanceM: 900 } });
     await recorder().start();
-    expect(useLiveTrackStore.getState().pointCount).toBe(0);
+    expect(useLiveTrackStore.getState().stats).toEqual(EMPTY_STATS);
+  });
+
+  it('remembers when the hike started and ended, for the clock', async () => {
+    const db = await mockDb;
+    await recorder().start();
+    const hike = await getHike(db, recorder().hikeId!);
+    expect(recorder()).toMatchObject({ startedAt: hike!.startedAt, endedAt: null });
+
+    await recorder().finish();
+    const { endedAt } = recorder();
+    expect(endedAt).toBe((await getHike(db, hike!.id))!.endedAt);
+
+    recorder().reset();
+    expect(recorder()).toMatchObject({ startedAt: null, endedAt: null });
   });
 
   it('saves nothing without full location access', async () => {
