@@ -4,11 +4,8 @@ import { getDb } from '@/db/database';
 import { createHike, deleteHike, type HikeStatus, setHikeStatus } from '@/db/hikes';
 
 import { useLiveTrackStore } from './live-track-store';
-import {
-  ensureLocationPermission,
-  startLocationUpdates,
-  stopLocationUpdates,
-} from './location-task';
+import { requireLocationAccess } from './location-permission';
+import { startLocationUpdates, stopLocationUpdates } from './location-task';
 
 /** idle → recording ⇄ paused → finished (→ idle once the hike is saved). */
 export type RecorderStatus = 'idle' | HikeStatus;
@@ -91,8 +88,9 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
 
     start: () =>
       moveTo('recording', async () => {
-        // Ask first, so a "no" leaves nothing behind.
-        await ensureLocationPermission();
+        // Check first, so missing access leaves nothing behind. The Record
+        // screen walks the user through granting it before Start is shown.
+        await requireLocationAccess();
         const db = await getDb();
         const hike = await createHike(db);
         try {
@@ -115,7 +113,7 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
     resume: () =>
       moveTo('recording', async () => {
         const hikeId = currentHikeId();
-        await ensureLocationPermission(); // it may have been turned off while paused
+        await requireLocationAccess(); // it may have been turned off while paused
         await startLocationUpdates();
         try {
           await setHikeStatus(await getDb(), hikeId, 'recording');

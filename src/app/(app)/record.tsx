@@ -5,19 +5,12 @@ import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { LocationAccessCard } from '@/features/record/location-access-card';
+import { useLocationAccess } from '@/features/record/use-location-access';
 import { useLiveTrackStore } from '@/tracking/live-track-store';
-import { LocationPermissionError } from '@/tracking/location-task';
+import { LocationPermissionError } from '@/tracking/location-permission';
 import { type RecorderStatus, useRecorderStore } from '@/tracking/recorder-store';
 import { useColors } from '@/theme/use-colors';
-
-function errorMessage(error: unknown): string {
-  if (error instanceof LocationPermissionError) {
-    return error.scope === 'foreground'
-      ? 'Trail needs your location to record a hike. Allow location access and try again.'
-      : 'To keep recording with the screen locked, set location access to "Allow all the time" in Settings.';
-  }
-  return "Couldn't save that change. Please try again.";
-}
 
 const COPY: Record<RecorderStatus, { title: string; body: string }> = {
   idle: {
@@ -34,18 +27,32 @@ export default function RecordScreen() {
   const status = useRecorderStore((s) => s.status);
   const saving = useRecorderStore((s) => s.saving);
   const pointCount = useLiveTrackStore((s) => s.pointCount);
+  const location = useLocationAccess();
   const [error, setError] = useState<string | null>(null);
   const { start, pause, resume, finish, reset } = useRecorderStore.getState();
 
   const run = (action: () => Promise<void>) => () => {
     setError(null);
     action().catch((e: unknown) => {
+      if (e instanceof LocationPermissionError) {
+        // Access changed since the last check: show the card for the new state.
+        location.refresh();
+        return;
+      }
       console.warn('Recorder change failed', e);
-      setError(errorMessage(e));
+      setError("Couldn't save that change. Please try again.");
     });
   };
 
   const live = status === 'recording';
+  // Starting or resuming needs full location access. Until then, the card
+  // takes the place of the Start/Resume button and walks through each step.
+  const { access } = location;
+  const canGo = access === 'ready';
+  const missingAccess =
+    (status === 'idle' || status === 'paused') && access !== null && access !== 'ready'
+      ? access
+      : null;
 
   return (
     <Screen edges={['top']} contentStyle={styles.page}>
@@ -69,14 +76,35 @@ export default function RecordScreen() {
       </View>
 
       <View style={styles.actions}>
+        {missingAccess && (
+          <LocationAccessCard
+            access={missingAccess}
+            fixing={location.fixing}
+            onFix={location.fix}
+          />
+        )}
         <FormError message={error} />
-        {status === 'idle' && <Button label="Start hike" onPress={run(start)} loading={saving} />}
+        {status === 'idle' && !missingAccess && (
+          <Button
+            label="Start hike"
+            onPress={run(start)}
+            loading={saving}
+            disabled={!canGo}
+          />
+        )}
         {status === 'recording' && (
           <Button label="Pause" variant="secondary" onPress={run(pause)} disabled={saving} />
         )}
-        {status === 'paused' && <Button label="Resume" onPress={run(resume)} disabled={saving} />}
+        {status === 'paused' && !missingAccess && (
+          <Button label="Resume" onPress={run(resume)} disabled={saving || !canGo} />
+        )}
         {(status === 'recording' || status === 'paused') && (
-          <Button label="Finish hike" onPress={run(finish)} loading={saving} />
+          <Button
+            label="Finish hike"
+            variant={missingAccess ? 'secondary' : 'primary'}
+            onPress={run(finish)}
+            loading={saving}
+          />
         )}
         {status === 'finished' && <Button label="Done" onPress={reset} />}
       </View>

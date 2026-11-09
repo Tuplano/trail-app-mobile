@@ -9,14 +9,6 @@ import { saveLocations } from './save-locations';
 /** The background task that receives GPS fixes while a hike is recording. */
 export const LOCATION_TASK = 'trail-hike-location';
 
-/** Thrown when the user hasn't allowed the location access recording needs. */
-export class LocationPermissionError extends Error {
-  constructor(readonly scope: 'foreground' | 'background') {
-    super(`Location permission (${scope}) was not granted`);
-    this.name = 'LocationPermissionError';
-  }
-}
-
 // Must run when this file loads, not inside a component: when Android or iOS
 // wakes the app in the background to deliver fixes, no screen is mounted.
 // The root layout imports this file so it always loads at startup.
@@ -35,18 +27,6 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
     }
   },
 );
-
-/**
- * Asks for "while using" and then "all the time" location access. Both are
- * needed to keep recording with the screen locked. Resolves at once if they
- * were already granted. (Task #22 adds the friendlier explanation screens.)
- */
-export async function ensureLocationPermission(): Promise<void> {
-  const foreground = await Location.requestForegroundPermissionsAsync();
-  if (!foreground.granted) throw new LocationPermissionError('foreground');
-  const background = await Location.requestBackgroundPermissionsAsync();
-  if (!background.granted) throw new LocationPermissionError('background');
-}
 
 /** Starts GPS. Fixes go to the task above, even with the app in the background. */
 export async function startLocationUpdates(): Promise<void> {

@@ -4,12 +4,8 @@ import { createTestDb } from '@/db/test-db';
 import type { Db } from '@/db/types';
 
 import { useLiveTrackStore } from './live-track-store';
-import {
-  ensureLocationPermission,
-  LocationPermissionError,
-  startLocationUpdates,
-  stopLocationUpdates,
-} from './location-task';
+import { LocationPermissionError, requireLocationAccess } from './location-permission';
+import { startLocationUpdates, stopLocationUpdates } from './location-task';
 import { canTransition, useRecorderStore } from './recorder-store';
 
 // The recorder saves to a real in-memory SQLite database (see db/test-db.ts).
@@ -19,14 +15,16 @@ jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
 }));
 // GPS is native, so it's replaced with mocks we can check and make fail.
-jest.mock('./location-task', () => ({
+jest.mock('./location-permission', () => ({
   LocationPermissionError: class LocationPermissionError extends Error {},
-  ensureLocationPermission: jest.fn(),
+  requireLocationAccess: jest.fn(),
+}));
+jest.mock('./location-task', () => ({
   startLocationUpdates: jest.fn(),
   stopLocationUpdates: jest.fn(),
 }));
 
-const askPermission = jest.mocked(ensureLocationPermission);
+const askPermission = jest.mocked(requireLocationAccess);
 const startGps = jest.mocked(startLocationUpdates);
 const stopGps = jest.mocked(stopLocationUpdates);
 
@@ -93,8 +91,8 @@ describe('recorder store', () => {
     expect(useLiveTrackStore.getState().pointCount).toBe(0);
   });
 
-  it('saves nothing when location permission is refused', async () => {
-    askPermission.mockRejectedValue(new LocationPermissionError('background'));
+  it('saves nothing without full location access', async () => {
+    askPermission.mockRejectedValue(new LocationPermissionError('ask-background'));
     await expect(recorder().start()).rejects.toBeInstanceOf(LocationPermissionError);
     expect(recorder()).toMatchObject({ status: 'idle', hikeId: null, saving: false });
     expect(startGps).not.toHaveBeenCalled();
@@ -120,7 +118,7 @@ describe('recorder store', () => {
   it('stays paused when resuming without permission', async () => {
     await recorder().start();
     await recorder().pause();
-    askPermission.mockRejectedValue(new LocationPermissionError('foreground'));
+    askPermission.mockRejectedValue(new LocationPermissionError('foreground-blocked'));
     await expect(recorder().resume()).rejects.toBeInstanceOf(LocationPermissionError);
     expect(recorder().status).toBe('paused');
     expect((await getHike(await mockDb, recorder().hikeId!))?.status).toBe('paused');
