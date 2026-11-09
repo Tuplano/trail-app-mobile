@@ -6,7 +6,7 @@ import {
   fixLocationAccess,
   LocationPermissionError,
   requireLocationAccess,
-} from './location-permission';
+} from '../location-permission';
 
 jest.mock('expo-location', () => ({
   hasServicesEnabledAsync: jest.fn(),

@@ -1,7 +1,7 @@
 import { api } from '@/api/client';
 
-import { useAuthStore } from './auth-store';
-import type { Session, User } from './session-storage';
+import { useAuthStore } from '../auth-store';
+import type { Session, User } from '../session-storage';
 
 // An in-memory stand-in for the phone's keychain/keystore.
 const mockKeychain = new Map<string, string>();

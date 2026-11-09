@@ -1,7 +1,7 @@
-import { createHike, deleteHike, getHike, getRecordingHike, setHikeStatus } from './hikes';
-import { prepareDatabase } from './migrations';
+import { createHike, deleteHike, getHike, getRecordingHike, setHikeStatus } from '../hikes';
+import { prepareDatabase } from '../migrations';
 import { createTestDb } from './test-db';
-import { addTrackPoints, getTrackPoints } from './track-points';
+import { addTrackPoints, getTrackPoints } from '../track-points';
 
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),

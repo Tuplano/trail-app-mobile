@@ -1,25 +1,25 @@
 import { getHike } from '@/db/hikes';
 import { prepareDatabase } from '@/db/migrations';
-import { createTestDb } from '@/db/test-db';
+import { createTestDb } from '@/db/__tests__/test-db';
 import type { Db } from '@/db/types';
 
-import { useLiveTrackStore } from './live-track-store';
-import { LocationPermissionError, requireLocationAccess } from './location-permission';
-import { startLocationUpdates, stopLocationUpdates } from './location-task';
-import { canTransition, useRecorderStore } from './recorder-store';
+import { useLiveTrackStore } from '../live-track-store';
+import { LocationPermissionError, requireLocationAccess } from '../location-permission';
+import { startLocationUpdates, stopLocationUpdates } from '../location-task';
+import { canTransition, useRecorderStore } from '../recorder-store';
 
-// The recorder saves to a real in-memory SQLite database (see db/test-db.ts).
+// The recorder saves to a real in-memory SQLite database (see db/__tests__/test-db.ts).
 let mockDb: Promise<Db>;
 jest.mock('@/db/database', () => ({ getDb: () => mockDb }));
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
 }));
 // GPS is native, so it's replaced with mocks we can check and make fail.
-jest.mock('./location-permission', () => ({
+jest.mock('../location-permission', () => ({
   LocationPermissionError: class LocationPermissionError extends Error {},
   requireLocationAccess: jest.fn(),
 }));
-jest.mock('./location-task', () => ({
+jest.mock('../location-task', () => ({
   startLocationUpdates: jest.fn(),
   stopLocationUpdates: jest.fn(),
 }));

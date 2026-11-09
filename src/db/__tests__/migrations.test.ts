@@ -1,6 +1,6 @@
-import { MIGRATIONS, migrate, prepareDatabase, SCHEMA_VERSION } from './migrations';
+import { MIGRATIONS, migrate, prepareDatabase, SCHEMA_VERSION } from '../migrations';
 import { createTestDb } from './test-db';
-import type { Db } from './types';
+import type { Db } from '../types';
 
 async function freshDb(): Promise<Db> {
   const db = createTestDb();

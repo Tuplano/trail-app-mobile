@@ -2,7 +2,7 @@
 /// <reference types="node" />
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 
-import type { Db } from './types';
+import type { Db } from '../types';
 
 /**
  * For tests only: an in-memory SQLite database (Node's built-in one) behind the

@@ -1,4 +1,4 @@
-import { uuidv7 } from './ids';
+import { uuidv7 } from '../ids';
 
 const zeros = new Uint8Array(10);
 const ones = new Uint8Array(10).fill(0xff);

@@ -1,4 +1,4 @@
-import { initials, profileChanges, validateProfile } from './validation';
+import { initials, profileChanges, validateProfile } from '../validation';
 
 const saved = { username: 'maya', displayName: 'Maya Okafor' };
 

@@ -61,6 +61,16 @@ export async function addTrackPoints(
   }
 }
 
+/** The hike's newest saved point, or null if it has none yet. */
+export async function getLastTrackPoint(db: Db, hikeId: string): Promise<TrackPoint | null> {
+  const row = await db.getFirstAsync<TrackPointRow>(
+    `SELECT seq, recorded_at, lat, lng, altitude_m, accuracy_m, speed_mps
+     FROM track_points WHERE hike_id = ? ORDER BY seq DESC LIMIT 1`,
+    [hikeId],
+  );
+  return row ? toTrackPoint(row) : null;
+}
+
 /** A hike's points in order, starting at `fromSeq`. Sync reads them in pages of 500. */
 export async function getTrackPoints(
   db: Db,
@@ -73,7 +83,11 @@ export async function getTrackPoints(
      FROM track_points WHERE hike_id = ? AND seq >= ? ORDER BY seq LIMIT ?`,
     [hikeId, fromSeq, limit],
   );
-  return rows.map((row) => ({
+  return rows.map(toTrackPoint);
+}
+
+function toTrackPoint(row: TrackPointRow): TrackPoint {
+  return {
     seq: row.seq,
     recordedAt: row.recorded_at,
     lat: row.lat,
@@ -81,5 +95,5 @@ export async function getTrackPoints(
     altitudeM: row.altitude_m,
     accuracyM: row.accuracy_m,
     speedMps: row.speed_mps,
-  }));
+  };
 }

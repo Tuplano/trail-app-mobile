@@ -1,4 +1,4 @@
-import { parseAppEnv, resolveApiUrl } from './env';
+import { parseAppEnv, resolveApiUrl } from '../env';
 
 describe('parseAppEnv', () => {
   it('defaults to development when unset', () => {

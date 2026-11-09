@@ -2,10 +2,10 @@ import type { LocationObject } from 'expo-location';
 
 import { createHike, setHikeStatus } from '@/db/hikes';
 import { prepareDatabase } from '@/db/migrations';
-import { createTestDb } from '@/db/test-db';
+import { createTestDb } from '@/db/__tests__/test-db';
 import { getTrackPoints } from '@/db/track-points';
 
-import { saveLocations, toTrackPoint } from './save-locations';
+import { saveLocations, toTrackPoint } from '../save-locations';
 
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
@@ -17,11 +17,12 @@ async function freshDb() {
   return db;
 }
 
+/** A fix walking north: each second of `timestamp` is ~11 m further along. */
 function fix(timestamp: number, coords: Partial<LocationObject['coords']> = {}): LocationObject {
   return {
     timestamp,
     coords: {
-      latitude: 14.6,
+      latitude: 14.6 + timestamp / 1e7,
       longitude: 121.0,
       altitude: 50,
       accuracy: 5,
@@ -35,8 +36,8 @@ function fix(timestamp: number, coords: Partial<LocationObject['coords']> = {}):
 
 describe('toTrackPoint', () => {
   it('maps an expo-location fix to a track point', () => {
-    expect(toTrackPoint(fix(1000))).toEqual({
-      recordedAt: 1000,
+    expect(toTrackPoint(fix(0))).toEqual({
+      recordedAt: 0,
       lat: 14.6,
       lng: 121.0,
       altitudeM: 50,
@@ -92,6 +93,19 @@ describe('saveLocations', () => {
 
     const points = await getTrackPoints(db, id);
     expect(points.map((p) => [p.seq, p.recordedAt])).toEqual([[0, 12_000]]);
+  });
+
+  it('drops GPS wobble, also across batches', async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 500);
+
+    const standingStill = (t: number) => fix(t, { latitude: 14.6, longitude: 121.0 });
+    expect(await saveLocations(db, [standingStill(1000), standingStill(2000)])).toBe(1);
+    // The next batch is compared with the last saved point, not just itself.
+    expect(await saveLocations(db, [standingStill(3000)])).toBe(0);
+    expect(await saveLocations(db, [fix(5000), fix(6000, { accuracy: 80 })])).toBe(1);
+
+    expect((await getTrackPoints(db, id)).map((p) => p.recordedAt)).toEqual([1000, 5000]);
   });
 
   it('does nothing for an empty batch', async () => {

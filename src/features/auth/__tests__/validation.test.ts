@@ -1,6 +1,6 @@
 import { ApiError } from '@/api/errors';
 
-import { describeAuthError, validateSignIn, validateSignUp } from './validation';
+import { describeAuthError, validateSignIn, validateSignUp } from '../validation';
 
 const validSignUp = {
   displayName: 'Maya Okafor',

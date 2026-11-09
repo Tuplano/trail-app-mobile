@@ -1,8 +1,13 @@
-import { createHike, getHike } from './hikes';
-import { prepareDatabase } from './migrations';
+import { createHike, getHike } from '../hikes';
+import { prepareDatabase } from '../migrations';
 import { createTestDb } from './test-db';
-import { addTrackPoints, getTrackPoints, type NewTrackPoint } from './track-points';
-import type { Db } from './types';
+import {
+  addTrackPoints,
+  getLastTrackPoint,
+  getTrackPoints,
+  type NewTrackPoint,
+} from '../track-points';
+import type { Db } from '../types';
 
 // expo-crypto is native; Node's crypto gives the same random bytes in tests.
 jest.mock('expo-crypto', () => ({
@@ -99,5 +104,16 @@ describe('addTrackPoints', () => {
 
     const page = await getTrackPoints(db, id, 1000, 500);
     expect(page.map((p) => p.seq)).toEqual(Array.from({ length: 201 }, (_, i) => 1000 + i));
+  });
+});
+
+describe('getLastTrackPoint', () => {
+  it('is the newest point, or null for a hike without points', async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db);
+    expect(await getLastTrackPoint(db, id)).toBeNull();
+
+    await addTrackPoints(db, id, [fix(0), fix(1), fix(2)]);
+    expect(await getLastTrackPoint(db, id)).toEqual({ ...fix(2), seq: 2 });
   });
 });
