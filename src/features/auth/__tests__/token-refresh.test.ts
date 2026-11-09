@@ -100,6 +100,47 @@ describe('token refresh', () => {
     expect(useAuthStore.getState().session?.refreshToken).toBe('refresh-2');
   });
 
+  it("retries correctly with the app's real fetch (expo/fetch)", async () => {
+    // expo/fetch's responses aren't instances of the global Response class.
+    // openapi-fetch insists middleware returns one, so the retry used to fail
+    // with "onResponse: must return new Response() when modifying the response".
+    class ExpoLikeResponse {
+      constructor(private readonly inner: Response) {}
+      get status() {
+        return this.inner.status;
+      }
+      get statusText() {
+        return this.inner.statusText;
+      }
+      get ok() {
+        return this.inner.ok;
+      }
+      get headers() {
+        return this.inner.headers;
+      }
+      get body() {
+        return this.inner.body;
+      }
+      text() {
+        return this.inner.text();
+      }
+      json() {
+        return this.inner.json();
+      }
+      clone() {
+        return new ExpoLikeResponse(this.inner.clone());
+      }
+    }
+    globalThis.fetch = (async (request: Request) =>
+      new ExpoLikeResponse(await fakeFetch(request))) as unknown as typeof fetch;
+    validToken = 'access-2';
+
+    const { data, error } = await api.GET('/api/v1/me');
+
+    expect(error).toBeUndefined();
+    expect(data?.username).toBe('maya');
+  });
+
   it('refreshes only once when several requests fail together', async () => {
     validToken = 'access-2';
 

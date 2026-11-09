@@ -12,6 +12,7 @@ jest.mock('expo-network', () => ({
 }));
 jest.mock('@/db/database', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('../process-outbox', () => ({ processOutbox: jest.fn() }));
+jest.mock('../upload-hike', () => ({ uploadHike: jest.fn() }));
 
 const netState = jest.mocked(Network.getNetworkStateAsync);
 const process = jest.mocked(processOutbox);

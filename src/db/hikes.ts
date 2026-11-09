@@ -110,6 +110,15 @@ export async function setHikeStats(
   );
 }
 
+/**
+ * Records how the hike's upload is going: 'syncing' while it uploads,
+ * 'synced' once the server has all of it, back to 'pending' if it failed and
+ * will be retried. Doesn't change client_updated_at (not an edit by the user).
+ */
+export async function setSyncStatus(db: Db, id: string, status: SyncStatus): Promise<void> {
+  await db.runAsync('UPDATE hikes SET sync_status = ? WHERE id = ?', [status, id]);
+}
+
 /** Removes a hike and its points, e.g. one that never got GPS started. */
 export async function deleteHike(db: Db, id: string): Promise<void> {
   await db.runAsync('DELETE FROM hikes WHERE id = ?', [id]);

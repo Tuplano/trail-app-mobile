@@ -4,12 +4,12 @@ import { AppState } from 'react-native';
 import { getDb } from '@/db/database';
 
 import { processOutbox, type UploadHandlers } from './process-outbox';
+import { uploadHike } from './upload-hike';
 
-/**
- * What uploads each kind of outbox item. Empty until task #31 adds the hike
- * upload; until then items wait in the outbox and a sync run skips them.
- */
-const HANDLERS: UploadHandlers = {};
+/** What uploads each kind of outbox item. */
+const HANDLERS: UploadHandlers = {
+  hike: uploadHike,
+};
 
 /**
  * Online means connected with working internet. Android confirms the internet
