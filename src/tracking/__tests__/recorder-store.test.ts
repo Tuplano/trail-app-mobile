@@ -1,6 +1,7 @@
 import { createHike, getHike, setHikeStatus } from '@/db/hikes';
 import { prepareDatabase } from '@/db/migrations';
 import { createTestDb } from '@/db/__tests__/test-db';
+import { getDueItems } from '@/db/outbox';
 import { addTrackPoints } from '@/db/track-points';
 import type { Db } from '@/db/types';
 
@@ -236,5 +237,18 @@ describe('restoring after the app restarts', () => {
     await recorder().restore();
     await recorder().pause();
     expect(recorder().restored).toBe(false);
+  });
+});
+
+describe('queuing for upload', () => {
+  it('puts the hike in the outbox when it is finished', async () => {
+    const db = await mockDb;
+    await recorder().start();
+    const { hikeId } = recorder();
+    await addTrackPoints(db, hikeId!, [{ recordedAt: Date.now(), lat: 14.6, lng: 121.0 }]);
+    expect(await getDueItems(db)).toEqual([]); // not while recording
+
+    await recorder().finish();
+    expect((await getDueItems(db)).map((i) => i.entityId)).toEqual([hikeId]);
   });
 });
