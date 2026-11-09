@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { getDb } from '@/db/database';
 import { createHike, deleteHike, type HikeStatus, setHikeStatus } from '@/db/hikes';
 import { queueFinishedHikes } from '@/sync/queue-hikes';
+import { requestSync } from '@/sync/sync';
 
 import { useLiveTrackStore } from './live-track-store';
 import { requireLocationAccess } from './location-permission';
@@ -191,6 +192,7 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
         await setHikeStatus(await getDb(), currentHikeId(), 'finished', endedAt);
         await stopGpsQuietly();
         await queueFinishedHikes(); // waits in the outbox until sync uploads it
+        void requestSync(); // upload now if online; don't make Finish wait for it
         return { endedAt };
       }),
 

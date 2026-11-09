@@ -4,6 +4,7 @@ import { createTestDb } from '@/db/__tests__/test-db';
 import { getDueItems } from '@/db/outbox';
 import { addTrackPoints } from '@/db/track-points';
 import type { Db } from '@/db/types';
+import { requestSync } from '@/sync/sync';
 
 import { EMPTY_STATS } from '../hike-stats';
 import { useLiveTrackStore } from '../live-track-store';
@@ -27,6 +28,8 @@ jest.mock('../location-task', () => ({
   startLocationUpdates: jest.fn(),
   stopLocationUpdates: jest.fn(),
 }));
+// Uploading is tested in sync's own tests; here we only check Finish asks for it.
+jest.mock('@/sync/sync', () => ({ requestSync: jest.fn(() => Promise.resolve()) }));
 
 const askPermission = jest.mocked(requireLocationAccess);
 const ensureGps = jest.mocked(ensureLocationUpdates);
@@ -250,5 +253,6 @@ describe('queuing for upload', () => {
 
     await recorder().finish();
     expect((await getDueItems(db)).map((i) => i.entityId)).toEqual([hikeId]);
+    expect(requestSync).toHaveBeenCalled(); // and asks to upload it right away
   });
 });

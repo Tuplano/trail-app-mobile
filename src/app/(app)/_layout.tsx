@@ -3,11 +3,15 @@ import { useEffect } from 'react';
 
 import AppTabs from '@/components/app-tabs';
 import { queueFinishedHikes } from '@/sync/queue-hikes';
+import { startSync } from '@/sync/sync';
 import { useRecorderStore } from '@/tracking/recorder-store';
 
 /** The signed-in part of the app. The design's tab bar replaces these tabs in a later task. */
 export default function AppLayout() {
   useEffect(() => {
+    let stopSync: (() => void) | undefined;
+    let unmounted = false;
+
     // If the app was closed or crashed mid-hike, pick that hike back up and
     // show it, so the hiker doesn't land on Home unaware it's still running.
     useRecorderStore
@@ -18,8 +22,18 @@ export default function AppLayout() {
       })
       .catch((error: unknown) => console.warn('Could not restore the recording', error))
       // Then queue any finished hike whose upload was never queued (e.g. the
-      // app crashed right after Finish, or restore just finished a stale one).
-      .finally(queueFinishedHikes);
+      // app crashed right after Finish, or restore just finished a stale one),
+      // and start uploading whenever the phone is online.
+      .finally(async () => {
+        await queueFinishedHikes();
+        if (!unmounted) stopSync = startSync();
+      });
+
+    // Signing out unmounts this layout: stop syncing (uploads need a session).
+    return () => {
+      unmounted = true;
+      stopSync?.();
+    };
   }, []);
 
   return <AppTabs />;
