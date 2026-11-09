@@ -16,20 +16,29 @@ export function validateSignIn(form: SignInForm): FieldErrors {
   return errors;
 }
 
+/** The API's username rule (shared by sign-up and PATCH /me). Expects a trimmed value. */
+export function usernameError(username: string): string | null {
+  if (username.length < 3 || username.length > 30) return 'Use 3 to 30 characters.';
+  if (!USERNAME.test(username)) return 'Use only letters, numbers, and underscores.';
+  return null;
+}
+
+/** The API's display name rule (shared by sign-up and PATCH /me). Expects a trimmed value. */
+export function displayNameError(displayName: string): string | null {
+  if (!displayName) return 'Enter your name.';
+  if (displayName.length > 50) return 'Use 50 characters or fewer.';
+  return null;
+}
+
 export function validateSignUp(form: SignUpForm): FieldErrors {
   const errors: FieldErrors = {};
   if (!EMAIL.test(form.email.trim())) errors.email = 'Enter a valid email.';
 
-  const username = form.username.trim();
-  if (username.length < 3 || username.length > 30) {
-    errors.username = 'Use 3 to 30 characters.';
-  } else if (!USERNAME.test(username)) {
-    errors.username = 'Use only letters, numbers, and underscores.';
-  }
+  const username = usernameError(form.username.trim());
+  if (username) errors.username = username;
 
-  const displayName = form.displayName.trim();
-  if (!displayName) errors.displayName = 'Enter your name.';
-  else if (displayName.length > 50) errors.displayName = 'Use 50 characters or fewer.';
+  const displayName = displayNameError(form.displayName.trim());
+  if (displayName) errors.displayName = displayName;
 
   if (form.password.length < 8) errors.password = 'Use at least 8 characters.';
   else if (form.password.length > 128) errors.password = 'Use 128 characters or fewer.';

@@ -6,8 +6,6 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { Button } from '@/components/ui/button';
-import { signOut } from '@/features/auth/auth-api';
 import { ApiStatusCard } from '@/features/health/api-status-card';
 
 export default function HomeScreen() {
@@ -22,8 +20,6 @@ export default function HomeScreen() {
         </ThemedView>
 
         <ApiStatusCard />
-        {/* Temporary: moves to the Settings screen in task #16. */}
-        <Button label="Sign out" variant="secondary" onPress={signOut} style={styles.signOut} />
 
         {Platform.OS === 'web' && <WebBadge />}
       </SafeAreaView>
@@ -54,8 +50,5 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: 'center',
-  },
-  signOut: {
-    alignSelf: 'stretch',
   },
 });
