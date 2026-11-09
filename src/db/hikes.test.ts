@@ -1,6 +1,7 @@
-import { createHike, getHike, setHikeStatus } from './hikes';
+import { createHike, deleteHike, getHike, getRecordingHike, setHikeStatus } from './hikes';
 import { prepareDatabase } from './migrations';
 import { createTestDb } from './test-db';
+import { addTrackPoints, getTrackPoints } from './track-points';
 
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
@@ -42,5 +43,34 @@ describe('setHikeStatus', () => {
   it('fails for an unknown hike', async () => {
     const db = await freshDb();
     await expect(setHikeStatus(db, 'nope', 'paused')).rejects.toThrow(/not found/);
+  });
+});
+
+describe('getRecordingHike', () => {
+  it('is the newest recording hike, and null when none is recording', async () => {
+    const db = await freshDb();
+    expect(await getRecordingHike(db)).toBeNull();
+
+    const older = await createHike(db, 1000);
+    const newer = await createHike(db, 2000);
+    expect(await getRecordingHike(db)).toEqual({ id: newer.id, startedAt: 2000 });
+
+    await setHikeStatus(db, newer.id, 'paused');
+    expect(await getRecordingHike(db)).toEqual({ id: older.id, startedAt: 1000 });
+
+    await setHikeStatus(db, older.id, 'finished');
+    expect(await getRecordingHike(db)).toBeNull();
+  });
+});
+
+describe('deleteHike', () => {
+  it('removes the hike and its points', async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db);
+    await addTrackPoints(db, id, [{ recordedAt: 1, lat: 1, lng: 1 }]);
+
+    await deleteHike(db, id);
+    expect(await getHike(db, id)).toBeNull();
+    expect(await getTrackPoints(db, id)).toEqual([]);
   });
 });

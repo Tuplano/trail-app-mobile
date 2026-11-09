@@ -65,6 +65,24 @@ export async function getHike(db: Db, id: string): Promise<Hike | null> {
 }
 
 /**
+ * The hike GPS points should go to: the newest one that is recording. Null
+ * while paused or finished, so late fixes from the location task are dropped.
+ */
+export async function getRecordingHike(
+  db: Db,
+): Promise<{ id: string; startedAt: number } | null> {
+  const row = await db.getFirstAsync<{ id: string; started_at: number }>(
+    "SELECT id, started_at FROM hikes WHERE status = 'recording' ORDER BY started_at DESC LIMIT 1",
+  );
+  return row ? { id: row.id, startedAt: row.started_at } : null;
+}
+
+/** Removes a hike and its points, e.g. one that never got GPS started. */
+export async function deleteHike(db: Db, id: string): Promise<void> {
+  await db.runAsync('DELETE FROM hikes WHERE id = ?', [id]);
+}
+
+/**
  * Saves a recorder state change. Finishing also records when the hike ended.
  * Which changes are allowed is the recorder's job (see recorder-store.ts).
  */

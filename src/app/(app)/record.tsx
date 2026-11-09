@@ -5,8 +5,19 @@ import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { useLiveTrackStore } from '@/tracking/live-track-store';
+import { LocationPermissionError } from '@/tracking/location-task';
 import { type RecorderStatus, useRecorderStore } from '@/tracking/recorder-store';
 import { useColors } from '@/theme/use-colors';
+
+function errorMessage(error: unknown): string {
+  if (error instanceof LocationPermissionError) {
+    return error.scope === 'foreground'
+      ? 'Trail needs your location to record a hike. Allow location access and try again.'
+      : 'To keep recording with the screen locked, set location access to "Allow all the time" in Settings.';
+  }
+  return "Couldn't save that change. Please try again.";
+}
 
 const COPY: Record<RecorderStatus, { title: string; body: string }> = {
   idle: {
@@ -22,6 +33,7 @@ export default function RecordScreen() {
   const colors = useColors();
   const status = useRecorderStore((s) => s.status);
   const saving = useRecorderStore((s) => s.saving);
+  const pointCount = useLiveTrackStore((s) => s.pointCount);
   const [error, setError] = useState<string | null>(null);
   const { start, pause, resume, finish, reset } = useRecorderStore.getState();
 
@@ -29,7 +41,7 @@ export default function RecordScreen() {
     setError(null);
     action().catch((e: unknown) => {
       console.warn('Recorder change failed', e);
-      setError("Couldn't save that change. Please try again.");
+      setError(errorMessage(e));
     });
   };
 
@@ -49,6 +61,11 @@ export default function RecordScreen() {
           <Text variant="heading">{COPY[status].title}</Text>
         </View>
         <Text color="muted">{COPY[status].body}</Text>
+        {(status === 'recording' || status === 'paused') && (
+          <Text variant="small" color="muted">
+            {pointCount === 1 ? '1 GPS point saved' : `${pointCount} GPS points saved`}
+          </Text>
+        )}
       </View>
 
       <View style={styles.actions}>

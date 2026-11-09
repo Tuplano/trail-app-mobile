@@ -16,6 +16,9 @@ import { useColorScheme } from 'react-native';
 
 import { queryClient } from '@/api/query-client';
 import { useAuthStore } from '@/features/auth/auth-store';
+// Defines the background location task. It must load at startup, because the
+// OS can wake the app just to deliver GPS fixes, with no screen mounted.
+import '@/tracking/location-task';
 
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ fade: true, duration: 300 });
