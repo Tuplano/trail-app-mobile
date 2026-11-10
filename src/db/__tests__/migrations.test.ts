@@ -32,7 +32,30 @@ describe('migrate', () => {
     const tables = await db.getAllAsync<{ name: string }>(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
     );
-    expect(tables.map((t) => t.name)).toEqual(['hikes', 'outbox', 'track_points']);
+    expect(tables.map((t) => t.name)).toEqual([
+      'hikes',
+      'outbox',
+      'post_photos',
+      'posts',
+      'track_points',
+    ]);
+  });
+
+  it('upgrades a version 1 database, keeping its hikes private', async () => {
+    const db = createTestDb();
+    await db.execAsync('PRAGMA foreign_keys = ON;');
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(MIGRATIONS[0]);
+      await db.execAsync('PRAGMA user_version = 1');
+    });
+    await insertHike(db, 'old', 'finished');
+
+    await migrate(db);
+
+    expect(await version(db)).toBe(SCHEMA_VERSION);
+    expect(await db.getFirstAsync('SELECT visibility FROM hikes WHERE id = ?', ['old'])).toEqual({
+      visibility: 'private',
+    });
   });
 
   it('does nothing when already up to date', async () => {

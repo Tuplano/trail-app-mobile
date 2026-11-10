@@ -42,6 +42,7 @@ describe('createHike', () => {
       endedAt: null,
       syncStatus: 'pending',
       clientUpdatedAt: 1_700_000_000_000,
+      visibility: 'private', // until the hiker shares it
       distanceM: 0,
       elevationGainM: 0,
       movingTimeS: 0,

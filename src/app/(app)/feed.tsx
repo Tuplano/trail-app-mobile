@@ -24,8 +24,8 @@ export default function FeedScreen() {
         </View>
         <Text variant="subheading">Coming soon</Text>
         <Text color="muted" style={styles.body}>
-          Hikes shared by people you follow and by hikers nearby will show up here. Until then,
-          your own hikes are in History.
+          Your posts, and hikes shared by people you follow and by hikers nearby, will show up
+          here. Posts you share are saved and uploaded in the meantime.
         </Text>
       </View>
     </Screen>

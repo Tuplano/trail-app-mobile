@@ -21,8 +21,8 @@ const iso = (ms: number) => new Date(ms).toISOString();
 export function toUpsertBody(hike: Hike): UpsertHikeBody {
   return {
     title: hike.title,
-    // Who can see it is chosen when posting (Stage 5); until then it's private.
-    visibility: 'private',
+    // Private until the hiker shares it and picks who can see it.
+    visibility: hike.visibility,
     startedAt: iso(hike.startedAt),
     endedAt: hike.endedAt == null ? null : iso(hike.endedAt),
     clientUpdatedAt: iso(hike.clientUpdatedAt),

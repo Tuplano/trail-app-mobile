@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { getDb } from '@/db/database';
 import { getHike, type Hike, type HistoryHike, listFinishedHikes } from '@/db/hikes';
+import { getPostForHike } from '@/db/posts';
 import { getTrackPath, type PathPoint } from '@/db/track-points';
 import { type SyncSnapshot, useSyncStatusStore } from '@/sync/sync-status-store';
 
@@ -76,13 +77,13 @@ export type HikeDetail =
   | { state: 'loading' }
   | { state: 'missing' }
   | { state: 'failed' }
-  | { state: 'ready'; hike: Hike; path: PathPoint[] };
+  | { state: 'ready'; hike: Hike; path: PathPoint[]; shared: boolean };
 
 /**
- * One hike and its route, from the phone. The route is read once per hike:
- * it can't change after the hike is finished, and handing the map a new
- * array would make it re-frame itself. Later reads only refresh the hike,
- * for its upload badge.
+ * One hike, its route, and whether it was shared as a post, from the phone.
+ * The route is read once per hike: it can't change after the hike is
+ * finished, and handing the map a new array would make it re-frame itself.
+ * Later reads only refresh the hike (its upload badge) and the post.
  */
 export function useHikeDetail(id: string | undefined): HikeDetail {
   const [detail, setDetail] = useState<HikeDetail>({ state: 'loading' });
@@ -105,9 +106,10 @@ export function useHikeDetail(id: string | undefined): HikeDetail {
           }
           const path =
             loadedPath.current?.id === id ? loadedPath.current.path : await getTrackPath(db, id);
+          const post = await getPostForHike(db, id);
           if (!isLatest()) return;
           loadedPath.current = { id, path };
-          setDetail({ state: 'ready', hike, path });
+          setDetail({ state: 'ready', hike, path, shared: post !== null });
         } catch (error) {
           // Keep showing the hike if only a refresh failed.
           if (isLatest()) setDetail((d) => (d.state === 'ready' ? d : { state: 'failed' }));

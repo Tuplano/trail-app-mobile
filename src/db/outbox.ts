@@ -2,9 +2,10 @@ import type { Db } from './types';
 
 /**
  * What an outbox item uploads. 'hike' = the hike, its points in chunks, then
- * finish (see the API's /hikes endpoints). Photos and posts join in Stage 5.
+ * finish (see the API's /hikes endpoints). 'post' = a shared hike: its
+ * visibility, its photos, then the post (see sync/upload-post.ts).
  */
-export type OutboxKind = 'hike';
+export type OutboxKind = 'hike' | 'post';
 
 /** One thing waiting to be uploaded. Times are epoch milliseconds. */
 export type OutboxItem = {

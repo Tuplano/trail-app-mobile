@@ -52,6 +52,34 @@ export const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX outbox_by_due ON outbox (next_attempt_at);
   `,
+
+  // 2: sharing a hike as a post (Stage 5). Who can see a hike is set on the
+  // hike, as in the API; until it is shared it stays private.
+  `
+  ALTER TABLE hikes ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'
+    CHECK (visibility IN ('private', 'followers', 'public'));
+
+  CREATE TABLE posts (
+    id          TEXT PRIMARY KEY NOT NULL,        -- UUIDv7 made on the phone
+    hike_id     TEXT NOT NULL UNIQUE              -- one post per hike, like the API
+                REFERENCES hikes (id) ON DELETE CASCADE,
+    caption     TEXT,
+    created_at  INTEGER NOT NULL,
+    sync_status TEXT NOT NULL DEFAULT 'pending'
+                CHECK (sync_status IN ('pending', 'syncing', 'synced', 'failed'))
+  );
+
+  CREATE TABLE post_photos (
+    id           TEXT PRIMARY KEY NOT NULL,       -- UUIDv7 made on the phone
+    post_id      TEXT NOT NULL REFERENCES posts (id) ON DELETE CASCADE,
+    position     INTEGER NOT NULL,                -- 0, 1, 2… order to show them in
+    file_uri     TEXT NOT NULL,                   -- the app's own copy, until uploaded
+    content_type TEXT NOT NULL,                   -- image/jpeg, image/png or image/webp
+    size_bytes   INTEGER NOT NULL,
+    upload_key   TEXT,                            -- storage key, once uploaded
+    UNIQUE (post_id, position)
+  );
+  `,
 ];
 
 /** The schema version this build of the app expects. */

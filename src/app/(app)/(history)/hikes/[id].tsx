@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { DeviceMobile } from '@/components/ui/icons';
@@ -8,10 +8,14 @@ import { ElevationChart } from '@/features/history/elevation-chart';
 import { HikeStatsGrid } from '@/features/history/hike-stats-grid';
 import { formatHikeDate, hikeTitle } from '@/features/history/hike-summary';
 import { useHikeDetail } from '@/features/history/use-hikes';
+import { ShareButton } from '@/features/posts/share-button';
 import { LiveTrackMap } from '@/features/record/live-track-map';
 import { useColors } from '@/theme/use-colors';
 
-/** One finished hike: its route, stats and elevation, read from the phone. */
+/**
+ * One finished hike: its route, stats and elevation, read from the phone,
+ * and a button to share it to the feed.
+ */
 export default function HikeDetailScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,7 +42,7 @@ export default function HikeDetailScreen() {
     );
   }
 
-  const { hike, path } = detail;
+  const { hike, path, shared } = detail;
 
   return (
     // The header (with the back button) already sits under the status bar,
@@ -69,6 +73,14 @@ export default function HikeDetailScreen() {
 
       <HikeStatsGrid hike={hike} />
       <ElevationChart path={path} />
+      <ShareButton
+        shared={shared}
+        onPress={() =>
+          shared
+            ? router.navigate('/feed')
+            : router.push({ pathname: '/new-post/[hikeId]', params: { hikeId: hike.id } })
+        }
+      />
     </Screen>
   );
 }

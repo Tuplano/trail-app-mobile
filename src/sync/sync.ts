@@ -8,6 +8,7 @@ import { enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox'
 import { processOutbox, type UploadHandlers } from './process-outbox';
 import { loadSyncCounts, useSyncStatusStore } from './sync-status-store';
 import { uploadHike } from './upload-hike';
+import { uploadPost } from './upload-post';
 
 /** What uploads each kind of outbox item. */
 const HANDLERS: UploadHandlers = {
@@ -16,6 +17,7 @@ const HANDLERS: UploadHandlers = {
     uploadHike(db, item, (uploadProgress) =>
       useSyncStatusStore.getState().update({ uploadProgress }),
     ),
+  post: uploadPost,
 };
 
 /**

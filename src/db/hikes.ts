@@ -3,6 +3,8 @@ import type { Db } from './types';
 
 export type HikeStatus = 'recording' | 'paused' | 'finished';
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
+/** Who can see a hike and its post, as in the API. 'private' is "Only me". */
+export type HikeVisibility = 'private' | 'followers' | 'public';
 
 /** A hike as stored on the phone. Times are epoch milliseconds. */
 export type Hike = {
@@ -13,6 +15,7 @@ export type Hike = {
   endedAt: number | null;
   syncStatus: SyncStatus;
   clientUpdatedAt: number;
+  visibility: HikeVisibility;
   distanceM: number;
   elevationGainM: number;
   movingTimeS: number;
@@ -26,6 +29,7 @@ type HikeRow = {
   ended_at: number | null;
   sync_status: SyncStatus;
   client_updated_at: number;
+  visibility: HikeVisibility;
   distance_m: number;
   elevation_gain_m: number;
   moving_time_s: number;
@@ -40,6 +44,7 @@ function toHike(row: HikeRow): Hike {
     endedAt: row.ended_at,
     syncStatus: row.sync_status,
     clientUpdatedAt: row.client_updated_at,
+    visibility: row.visibility,
     distanceM: row.distance_m,
     elevationGainM: row.elevation_gain_m,
     movingTimeS: row.moving_time_s,

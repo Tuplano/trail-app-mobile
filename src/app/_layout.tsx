@@ -69,6 +69,8 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
           <Stack.Protected guard={signedIn}>
             <Stack.Screen name="(app)" />
+            {/* Over the tabs (the design hides them here), sliding up like a sheet. */}
+            <Stack.Screen name="new-post/[hikeId]" options={{ animation: 'slide_from_bottom' }} />
           </Stack.Protected>
           <Stack.Protected guard={!signedIn}>
             <Stack.Screen name="sign-in" />
