@@ -34,3 +34,6 @@ export { BatteryChargingIcon as BatteryCharging } from 'phosphor-react-native/sr
 export { SignOutIcon as SignOut } from 'phosphor-react-native/src/icons/SignOut';
 export { TrashIcon as Trash } from 'phosphor-react-native/src/icons/Trash';
 export { GearSixIcon as GearSix } from 'phosphor-react-native/src/icons/GearSix';
+export { HeartIcon as Heart } from 'phosphor-react-native/src/icons/Heart';
+export { ChatCircleIcon as ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
+export { PaperPlaneRightIcon as PaperPlaneRight } from 'phosphor-react-native/src/icons/PaperPlaneRight';

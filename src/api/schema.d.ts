@@ -126,7 +126,11 @@ export interface paths {
         get: operations["UsersController_getMe"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete your account and everything in it
+         * @description Immediate and permanent: your hikes and their routes, posts, photos, comments, likes, follows, badges, stats and notifications are removed, and every sign-in ends. Confirm with your password, or for a Google account with a new Google ID token.
+         */
+        delete: operations["UsersController_deleteMe"];
         options?: never;
         head?: never;
         /**
@@ -134,6 +138,86 @@ export interface paths {
          * @description Send only the fields to change. Other fields (email, password, avatar) are ignored here.
          */
         patch: operations["UsersController_updateMe"];
+        trace?: never;
+    };
+    "/api/v1/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Someone's profile
+         * @description Name, avatar, follower and following counts, how many of their posts you may see, and whether you follow them (for the follow button). Never their email.
+         */
+        get: operations["ProfilesController_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your totals, xp and level
+         * @description Worked out on the server from your processed hikes (flagged and hand-logged ones do not count). All zero, level 1, until your first hike is processed. levelMinXp and nextLevelMinXp give the bounds of a level progress bar.
+         */
+        get: operations["MyAchievementsController_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/achievements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every badge, unlocked or not
+         * @description For a badges grid: each badge with unlockedAt (null while locked) and progress towards its threshold. Grouped by type, easiest first.
+         */
+        get: operations["MyAchievementsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/achievements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Someone's level and the badges they hold
+         * @description Only unlocked badges. hikeId is null when you may not see that hike, and a peak badge earned on a hike you may not see is left out.
+         */
+        get: operations["UserAchievementsController_achievementsOf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/notifications": {
@@ -225,7 +309,7 @@ export interface paths {
         };
         /**
          * Get a hike with its route
-         * @description The route is a GeoJSON LineString, null until the hike is processed.
+         * @description Your own hike, with every detail. The route is a GeoJSON LineString, null until the hike is processed. To open someone else's hike, use GET /hikes/:id/view.
          */
         get: operations["HikesController_get"];
         /**
@@ -239,6 +323,46 @@ export interface paths {
          * @description Soft delete: the hike disappears from the API. Deleting it again also returns 204.
          */
         delete: operations["HikesController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hikes/{id}/manual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Log a past hike by hand
+         * @description For a hike recorded without the app, with no GPS data: type in when it started, how long it took and how far it went. It is saved as source 'manual': shown on your profile and postable, labelled self-reported, but it never counts for badges, xp or levels. The phone makes the id, so this is safe to repeat; a newer clientUpdatedAt edits it, like PUT /hikes/:id.
+         */
+        put: operations["HikesController_upsertManual"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hikes/{id}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Import a past hike from a GPX file
+         * @description For a hike recorded in another app (Strava, Garmin, AllTrails...). Send the file as multipart field "file". Its points are stored and processed like a hike recorded here, so it gets a route and stats, goes through the anti-cheat checks and counts for badges. Every point needs a time; up to 100000 points. The phone makes the id, so sending it again returns the same hike.
+         */
+        put: operations["HikesController_importGpx"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -296,6 +420,46 @@ export interface paths {
          * @description Newest first, 20 per page by default. Pass the previous page's nextCursor as cursor to continue. Deleted hikes are left out.
          */
         get: operations["HikesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hikes/{id}/gpx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download your hike as a GPX file
+         * @description A GPX 1.1 file that Garmin, Strava and other GPS apps can open: every recorded point with its elevation and time. Your own hikes only; the route is whole, privacy zones are not cut out.
+         */
+        get: operations["HikesController_gpx"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hikes/{id}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open a hike you may see, yours or someone else's
+         * @description For a hike page opened from a post: the stats and the full route. Works for your own hikes, public ones, and followers-only ones of people you follow. Others' routes have their privacy zones cut out. No notes or other owner-only details; the owner uses GET /hikes/:id.
+         */
+        get: operations["HikesController_view"];
         put?: never;
         post?: never;
         delete?: never;
@@ -405,6 +569,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{id}/posts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Someone's posts, for their profile
+         * @description Newest first, 20 per page by default, in the same shape as the feed. Only posts you may see: their public ones, followers-only ones if you follow them, and all of yours on your own profile. Pass the previous page's nextCursor as cursor to continue.
+         */
+        get: operations["UserPostsController_byUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/follow": {
         parameters: {
             query?: never;
@@ -424,6 +608,46 @@ export interface paths {
          * @description Also returns 204 if you were not following them.
          */
         delete: operations["FollowsController_unfollow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/followers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who follows someone
+         * @description Newest follow first, 20 per page by default, each with whether you follow them. Pass the previous page's nextCursor as cursor to continue.
+         */
+        get: operations["FollowsController_followers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/following": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who someone follows
+         * @description Newest follow first, 20 per page by default, each with whether you follow them. Pass the previous page's nextCursor as cursor to continue.
+         */
+        get: operations["FollowsController_following"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -468,7 +692,7 @@ export interface paths {
         put?: never;
         /**
          * Comment on a post
-         * @description You can comment on any post you may see.
+         * @description You can comment on any post you may see. The phone makes the comment id, so sending the same comment again returns it (200) instead of posting it twice.
          */
         post: operations["PostCommentsController_create"];
         delete?: never;
@@ -670,6 +894,107 @@ export interface components {
             username?: string;
             displayName?: string;
         };
+        ConfirmIdentityDto: {
+            /** @description For an account with a password */
+            password?: string;
+            /** @description For a Google account: a new ID token from Google's SDK */
+            googleIdToken?: string;
+        };
+        ProfileDto: {
+            /** Format: uuid */
+            id: string;
+            username: string;
+            displayName: string;
+            avatarUrl: string | null;
+            followerCount: number;
+            followingCount: number;
+            /** @description Only the posts you may see */
+            postCount: number;
+            /** @description Whether you follow them; false on your own profile */
+            isFollowing: boolean;
+        };
+        StatsDto: {
+            /** @description Meters walked over every hike that counts towards badges */
+            totalDistanceM: number;
+            /** @description Meters climbed over those hikes */
+            totalElevationGainM: number;
+            hikeCount: number;
+            /** @description The most meters climbed in a single hike */
+            bestHikeElevationGainM: number;
+            /** @description Most weeks in a row with a hike (weeks start Monday, UTC) */
+            bestStreakWeeks: number;
+            xp: number;
+            level: number;
+            /** @description The xp at which the current level started */
+            levelMinXp: number;
+            /** @description The xp needed for the next level; null at the top level */
+            nextLevelMinXp: number | null;
+        };
+        MyAchievementsDto: {
+            items: {
+                /** @description Stable name for picking artwork, e.g. distance_100km */
+                code: string;
+                name: string;
+                description: string;
+                /** @enum {string} */
+                type: "total_distance" | "total_elevation" | "hike_count" | "single_hike_elevation" | "peak" | "streak";
+                icon: string;
+                /** @description Bonus xp for unlocking it */
+                xp: number;
+                /** @description What the type counts up to (meters, hikes or weeks); null for 'peak' */
+                threshold: number | null;
+                /** @description The summit, for a 'peak' badge */
+                peak: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    elevationM: number | null;
+                } | null;
+                /**
+                 * Format: date-time
+                 * @description When the hike that earned it started; null while locked
+                 */
+                unlockedAt: string | null;
+                /**
+                 * Format: uuid
+                 * @description The hike that earned it; null while locked or once it is gone
+                 */
+                hikeId: string | null;
+                /** @description How far along, in the threshold's unit; null for 'peak'. Can pass the threshold. */
+                progress: number | null;
+            }[];
+        };
+        UserAchievementsDto: {
+            level: number;
+            xp: number;
+            items: {
+                /** @description Stable name for picking artwork, e.g. distance_100km */
+                code: string;
+                name: string;
+                description: string;
+                /** @enum {string} */
+                type: "total_distance" | "total_elevation" | "hike_count" | "single_hike_elevation" | "peak" | "streak";
+                icon: string;
+                /** @description Bonus xp for unlocking it */
+                xp: number;
+                /** @description What the type counts up to (meters, hikes or weeks); null for 'peak' */
+                threshold: number | null;
+                /** @description The summit, for a 'peak' badge */
+                peak: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    elevationM: number | null;
+                } | null;
+                /** Format: date-time */
+                unlockedAt: string;
+                /**
+                 * Format: uuid
+                 * @description The hike that earned it; null when you may not see that hike
+                 */
+                hikeId: string | null;
+            }[];
+        };
         NotificationListDto: {
             items: {
                 /** Format: uuid */
@@ -739,6 +1064,11 @@ export interface components {
             status: "recording" | "finished" | "processed";
             /** @enum {string} */
             visibility: "private" | "followers" | "public";
+            /**
+             * @description recorded: GPS recorded in the app. imported: from a GPX file. manual: typed in by hand, self-reported, with no route; it earns no badges, xp or levels.
+             * @enum {string}
+             */
+            source: "recorded" | "imported" | "manual";
             /** Format: date-time */
             startedAt: string;
             /** Format: date-time */
@@ -761,6 +1091,28 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        UpsertManualHikeDto: {
+            title?: string | null;
+            notes?: string | null;
+            /**
+             * @default private
+             * @enum {string}
+             */
+            visibility: "private" | "followers" | "public";
+            /** Format: date-time */
+            startedAt: string;
+            /** @description How long the hike took, start to finish, in seconds */
+            durationS: number;
+            /** @description In meters */
+            distanceM: number;
+            /** @description Total climb in meters, if known */
+            elevationGainM?: number | null;
+            /**
+             * Format: date-time
+             * @description When the entry was last edited on the phone, by the phone's clock
+             */
+            clientUpdatedAt: string;
         };
         UploadPointsDto: {
             /** @description Up to 500 points. Re-sending ones the server already has is safe: they are skipped. */
@@ -801,6 +1153,11 @@ export interface components {
                 status: "recording" | "finished" | "processed";
                 /** @enum {string} */
                 visibility: "private" | "followers" | "public";
+                /**
+                 * @description recorded: GPS recorded in the app. imported: from a GPX file. manual: typed in by hand, self-reported, with no route; it earns no badges, xp or levels.
+                 * @enum {string}
+                 */
+                source: "recorded" | "imported" | "manual";
                 /** Format: date-time */
                 startedAt: string;
                 /** Format: date-time */
@@ -838,6 +1195,11 @@ export interface components {
             status: "recording" | "finished" | "processed";
             /** @enum {string} */
             visibility: "private" | "followers" | "public";
+            /**
+             * @description recorded: GPS recorded in the app. imported: from a GPX file. manual: typed in by hand, self-reported, with no route; it earns no badges, xp or levels.
+             * @enum {string}
+             */
+            source: "recorded" | "imported" | "manual";
             /** Format: date-time */
             startedAt: string;
             /** Format: date-time */
@@ -868,13 +1230,55 @@ export interface components {
                 coordinates: (number)[][];
             } | null;
         };
+        HikeViewDto: {
+            /** Format: uuid */
+            id: string;
+            title: string | null;
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            visibility: "private" | "followers" | "public";
+            /**
+             * @description Only the owner sees their own hike while it's recording
+             * @enum {string}
+             */
+            status: "recording" | "finished" | "processed";
+            /**
+             * @description recorded: GPS recorded in the app. imported: from a GPX file. manual: typed in by hand, self-reported, with no route; it earns no badges, xp or levels.
+             * @enum {string}
+             */
+            source: "recorded" | "imported" | "manual";
+            author: {
+                /** Format: uuid */
+                id: string;
+                username: string;
+                displayName: string;
+                avatarUrl: string | null;
+            };
+            distanceM: number | null;
+            durationS: number | null;
+            movingTimeS: number | null;
+            elevationGainM: number | null;
+            elevationLossM: number | null;
+            maxAltitudeM: number | null;
+            /** @description The full route, GeoJSON with [longitude, latitude] pairs. For anyone but the author, sections inside the author's privacy zones are cut out, so it can be a MultiLineString. Null until the hike is processed, or if nothing is left to show. */
+            route: ({
+                /** @enum {string} */
+                type: "LineString";
+                coordinates: (number)[][];
+            } | {
+                /** @enum {string} */
+                type: "MultiLineString";
+                coordinates: (number)[][][];
+            }) | null;
+        };
         SyncStatusResponseDto: {
             /** @description Highest seq such that every seq from 0 up to it is stored; null if seq 0 is missing. Resume uploading from the next one. */
             highestContinuousSeq: number | null;
         };
         PresignUploadDto: {
             /**
-             * @description image/jpeg, image/png or image/webp
+             * @description image/jpeg, image/png or image/webp. HEIC (iPhone) photos must be converted to JPEG on the phone first.
              * @enum {string}
              */
             contentType: "image/jpeg" | "image/png" | "image/webp";
@@ -944,6 +1348,11 @@ export interface components {
                 status: "recording" | "finished" | "processed";
                 /** @enum {string} */
                 visibility: "private" | "followers" | "public";
+                /**
+                 * @description recorded: GPS recorded in the app. imported: from a GPX file. manual: typed in by hand, self-reported, with no route; it earns no badges, xp or levels.
+                 * @enum {string}
+                 */
+                source: "recorded" | "imported" | "manual";
                 /** Format: date-time */
                 startedAt: string;
                 distanceM: number | null;
@@ -1011,6 +1420,11 @@ export interface components {
                     status: "recording" | "finished" | "processed";
                     /** @enum {string} */
                     visibility: "private" | "followers" | "public";
+                    /**
+                     * @description recorded: GPS recorded in the app. imported: from a GPX file. manual: typed in by hand, self-reported, with no route; it earns no badges, xp or levels.
+                     * @enum {string}
+                     */
+                    source: "recorded" | "imported" | "manual";
                     /** Format: date-time */
                     startedAt: string;
                     distanceM: number | null;
@@ -1059,6 +1473,19 @@ export interface components {
             /** @description Pass as cursor for the next page; null on the last page */
             nextCursor: string | null;
         };
+        FollowListDto: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                username: string;
+                displayName: string;
+                avatarUrl: string | null;
+                /** @description Whether you follow them, for their follow button */
+                isFollowing: boolean;
+            }[];
+            /** @description Pass as cursor for the next page; null on the last page */
+            nextCursor: string | null;
+        };
         LikeStateDto: {
             /** @description Whether you like the post now */
             liked: boolean;
@@ -1086,6 +1513,11 @@ export interface components {
             nextCursor: string | null;
         };
         CreateCommentDto: {
+            /**
+             * Format: uuid
+             * @description UUIDv7, generated on the phone
+             */
+            id: string;
             /** @description 1 to 1000 characters */
             body: string;
         };
@@ -1143,6 +1575,11 @@ export interface components {
             title: string | null;
             /** Format: date-time */
             startedAt: string;
+            /**
+             * @description recorded: GPS recorded in the app. imported: from a GPX file. manual: typed in by hand, self-reported, with no route; it earns no badges, xp or levels.
+             * @enum {string}
+             */
+            source: "recorded" | "imported" | "manual";
             author: {
                 username: string;
                 displayName: string;
@@ -1515,6 +1952,65 @@ export interface operations {
             };
         };
     };
+    UsersController_deleteMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmIdentityDto"];
+            };
+        };
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description VALIDATION_FAILED: no password (or Google token) sent */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description INVALID_CREDENTIALS (wrong password), INVALID_GOOGLE_TOKEN, UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description GOOGLE_SIGN_IN_DISABLED: cannot confirm a Google account */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     UsersController_updateMe: {
         parameters: {
             query?: never;
@@ -1553,6 +2049,180 @@ export interface operations {
             };
             /** @description USERNAME_TAKEN */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ProfilesController_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Whose profile */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description USER_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    MyAchievementsController_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    MyAchievementsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyAchievementsDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    UserAchievementsController_achievementsOf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Whose profile */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAchievementsDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description USER_NOT_FOUND */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1839,6 +2509,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description HIKE_IS_MANUAL: the hike was logged by hand */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Error, in the standard error shape */
             default: {
                 headers: {
@@ -1878,6 +2555,161 @@ export interface operations {
             };
             /** @description HIKE_NOT_FOUND: not created yet, or belongs to another user */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    HikesController_upsertManual: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description UUIDv7 from the phone */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertManualHikeDto"];
+            };
+        };
+        responses: {
+            /** @description The hike as the server now has it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HikeDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED: missing or impossible numbers (over the limits, faster than 18 km/h on average, or not over yet) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_NOT_FOUND: the id belongs to another user, or the hike was deleted */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_NOT_MANUAL: the id is a hike recorded with GPS */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    HikesController_importGpx: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description UUIDv7 from the phone */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description The .gpx file, up to 10 MB
+                     */
+                    file: string;
+                    /** @description Leave out to use the track's name from the file */
+                    title?: string;
+                    /**
+                     * @default private
+                     * @enum {string}
+                     */
+                    visibility?: "private" | "followers" | "public";
+                };
+            };
+        };
+        responses: {
+            /** @description The hike, finished; processing fills in its stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HikeDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED (no file), INVALID_GPX (not a GPX track, bad or future points, too many points), or GPX_HAS_NO_TIMES (log it as a manual hike instead) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_NOT_FOUND: the id belongs to another user, or the hike was deleted */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_OVERLAPS: you already have a hike at that time. HIKE_ID_TAKEN: the id is a hike that was not imported. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description PAYLOAD_TOO_LARGE */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1939,7 +2771,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description HIKE_FINISHED: the hike is finished and the chunk has points past its totalPoints. A resend of points it already has gets 200. */
+            /** @description HIKE_FINISHED: the hike is finished and the chunk has points past its totalPoints. A resend of points it already has gets 200. HIKE_IS_MANUAL: the hike was logged by hand. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2002,7 +2834,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description POINTS_MISSING (with missingRanges), or HIKE_FINISHED if the hike was finished with a different totalPoints. */
+            /** @description POINTS_MISSING (with missingRanges), HIKE_FINISHED if the hike was finished with a different totalPoints, or HIKE_IS_MANUAL. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2065,6 +2897,111 @@ export interface operations {
             };
         };
     };
+    HikesController_gpx: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description UUIDv7 from the phone */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, as an attachment named like 2026-11-01-mt-pulag.gpx */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/gpx+xml": string;
+                };
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_NOT_FOUND: not created yet, deleted, or belongs to another user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_IS_MANUAL: logged by hand, so there are no points */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    HikesController_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description UUIDv7 from the phone */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HikeViewDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_NOT_FOUND: no such hike, or you may not see it (private, followers-only and you do not follow them, still recording, deleted) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     HikesController_syncStatus: {
         parameters: {
             query?: never;
@@ -2094,6 +3031,13 @@ export interface operations {
             };
             /** @description HIKE_NOT_FOUND: not created yet, deleted, or belongs to another user */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_IS_MANUAL: logged by hand, so there are no points */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2140,6 +3084,13 @@ export interface operations {
             };
             /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2210,6 +3161,13 @@ export interface operations {
             };
             /** @description HIKE_NOT_FINISHED, HIKE_ALREADY_POSTED, or POST_ID_TAKEN (the id belongs to a different post) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2360,6 +3318,61 @@ export interface operations {
             };
         };
     };
+    UserPostsController_byUser: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Whose posts */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description USER_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     FollowsController_follow: {
         parameters: {
             query?: never;
@@ -2400,6 +3413,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Error, in the standard error shape */
             default: {
                 headers: {
@@ -2425,6 +3445,123 @@ export interface operations {
         responses: {
             /** @description Not following */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description USER_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    FollowsController_followers: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Whose followers */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowListDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description USER_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    FollowsController_following: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Whose follows */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowListDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2489,6 +3626,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Error, in the standard error shape */
             default: {
                 headers: {
@@ -2529,6 +3673,13 @@ export interface operations {
             };
             /** @description POST_NOT_FOUND */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2616,6 +3767,16 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Already sent: same comment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentDto"];
+                };
+            };
+            /** @description Commented */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -2640,6 +3801,20 @@ export interface operations {
             };
             /** @description POST_NOT_FOUND */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description COMMENT_ID_TAKEN: the id belongs to a different comment (another writer, post, or words) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2859,6 +4034,13 @@ export interface operations {
             };
             /** @description HIKE_NOT_FOUND: no such hike, or it is not public (or not finished) */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

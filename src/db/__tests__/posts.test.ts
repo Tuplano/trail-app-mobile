@@ -6,6 +6,7 @@ import {
   createPost,
   getPost,
   getPostForHike,
+  listUnsentPosts,
   setPhotoUploadKey,
   setPostSyncStatus,
 } from '../posts';
@@ -130,5 +131,42 @@ describe('a post after it is saved', () => {
 
     expect(await getPost(db, id)).toBeNull();
     expect(await db.getAllAsync('SELECT id FROM post_photos')).toEqual([]);
+  });
+});
+
+describe('listUnsentPosts', () => {
+  it('lists posts not on the server yet, newest first, with their hike and photos', async () => {
+    const { db, hikeId } = await dbWithHike();
+    const other = await createHike(db, 2000);
+    const sent = await createHike(db, 3000);
+    const older = await createPost(
+      db,
+      { hikeId, caption: 'First', visibility: 'public', photos: [photo('p1'), photo('p2')] },
+      5000,
+    );
+    const newer = await createPost(
+      db,
+      { hikeId: other.id, caption: null, visibility: 'public', photos: [] },
+      6000,
+    );
+    const done = await createPost(
+      db,
+      { hikeId: sent.id, caption: 'Up', visibility: 'public', photos: [] },
+      7000,
+    );
+    await setPostSyncStatus(db, done, 'synced');
+    await setPostSyncStatus(db, newer, 'failed');
+
+    const unsent = await listUnsentPosts(db);
+
+    expect(unsent.map((p) => [p.id, p.syncStatus])).toEqual([
+      [newer, 'failed'],
+      [older, 'pending'],
+    ]);
+    expect(unsent[1]).toMatchObject({
+      caption: 'First',
+      hike: { title: null, startedAt: 1000, distanceM: 0 },
+      photoUris: ['file:///app/post-photos/p1.jpg', 'file:///app/post-photos/p2.jpg'],
+    });
   });
 });

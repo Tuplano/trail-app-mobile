@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import { useColors } from '@/theme/use-colors';
 
 /** The Profile tab opens on the profile (there's no index screen here). */
-export const unstable_settings = { initialRouteName: 'profile' };
+export const unstable_settings = { anchor: 'profile' };
 
 /**
  * The Profile tab: the profile, with Settings pushed on top. Like History,

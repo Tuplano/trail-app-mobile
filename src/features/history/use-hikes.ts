@@ -22,7 +22,7 @@ function uploadsChanged(now: SyncSnapshot, before: SyncSnapshot): boolean {
  * Each run gets an `isLatest` check: a slow read that finishes after a newer
  * one (or after the screen was left) must not overwrite fresher data.
  */
-function useLoadWhileFocused(
+export function useLoadWhileFocused(
   load: (isLatest: () => boolean) => Promise<void>,
 ): void {
   useFocusEffect(

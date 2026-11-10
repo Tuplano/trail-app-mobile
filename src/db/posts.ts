@@ -144,3 +144,58 @@ export async function setPhotoUploadKey(
 export async function clearPhotoUploadKeys(db: Db, postId: string): Promise<void> {
   await db.runAsync('UPDATE post_photos SET upload_key = NULL WHERE post_id = ?', [postId]);
 }
+
+/** A post saved on the phone but not on the server yet, for the feed's "Queued" cards. */
+export type UnsentPost = {
+  id: string;
+  caption: string | null;
+  createdAt: number;
+  /** 'failed' when the server turned it down. */
+  syncStatus: Exclude<SyncStatus, 'synced'>;
+  hike: {
+    title: string | null;
+    startedAt: number;
+    distanceM: number;
+    elevationGainM: number;
+    movingTimeS: number;
+  };
+  /** The app's copies of its photos, in order. */
+  photoUris: string[];
+};
+
+/** Posts not on the server yet (waiting, uploading or refused), newest first. */
+export async function listUnsentPosts(db: Db): Promise<UnsentPost[]> {
+  const rows = await db.getAllAsync<
+    PostRow & {
+      title: string | null;
+      started_at: number;
+      distance_m: number;
+      elevation_gain_m: number;
+      moving_time_s: number;
+    }
+  >(
+    `SELECT p.*, h.title, h.started_at, h.distance_m, h.elevation_gain_m, h.moving_time_s
+     FROM posts p JOIN hikes h ON h.id = p.hike_id
+     WHERE p.sync_status != 'synced'
+     ORDER BY p.created_at DESC`,
+  );
+  const photos = await db.getAllAsync<{ post_id: string; file_uri: string }>(
+    `SELECT post_id, file_uri FROM post_photos
+     WHERE post_id IN (SELECT id FROM posts WHERE sync_status != 'synced')
+     ORDER BY position`,
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    caption: row.caption,
+    createdAt: row.created_at,
+    syncStatus: row.sync_status as UnsentPost['syncStatus'],
+    hike: {
+      title: row.title,
+      startedAt: row.started_at,
+      distanceM: row.distance_m,
+      elevationGainM: row.elevation_gain_m,
+      movingTimeS: row.moving_time_s,
+    },
+    photoUris: photos.filter((p) => p.post_id === row.id).map((p) => p.file_uri),
+  }));
+}

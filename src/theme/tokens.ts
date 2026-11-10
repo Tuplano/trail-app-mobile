@@ -33,6 +33,8 @@ const dark = {
   glow: 'rgba(154,129,116,0.28)',
   // The switch knob: white in both themes, as in the design.
   knob: '#ffffff',
+  // Dims the screen behind a sheet (comments), as in the design.
+  scrim: 'rgba(5,2,6,0.6)',
 };
 
 export type Palette = typeof dark;
@@ -67,6 +69,8 @@ const light: Palette = {
   glow: 'rgba(154,129,116,0.22)',
   // The switch knob: white in both themes, as in the design.
   knob: '#ffffff',
+  // Dims the screen behind a sheet (comments), as in the design.
+  scrim: 'rgba(5,2,6,0.6)',
 };
 
 export const palettes = { dark, light } as const;

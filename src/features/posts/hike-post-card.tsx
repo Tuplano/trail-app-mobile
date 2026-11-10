@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, Line, Path, Pattern, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
+import { Stripes } from '@/components/ui/stripes';
 import { Text } from '@/components/ui/text';
 import type { Hike } from '@/db/hikes';
 import type { PathPoint } from '@/db/track-points';
@@ -34,20 +35,9 @@ export function HikePostCard({ hike, path }: { hike: Hike; path: readonly PathPo
         style={styles.thumb}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants">
+        {/* The design's diagonal stripes, where a map would be. */}
+        <Stripes id="post-thumb-stripes" />
         <Svg width={THUMB} height={THUMB}>
-          <Defs>
-            {/* The design's diagonal stripes, where a map would be. */}
-            <Pattern
-              id="stripes"
-              width={16}
-              height={16}
-              patternUnits="userSpaceOnUse"
-              patternTransform="rotate(45)">
-              <Rect width={16} height={16} fill={colors.stripe2} />
-              <Line x1={4} y1={0} x2={4} y2={16} stroke={colors.stripe1} strokeWidth={8} />
-            </Pattern>
-          </Defs>
-          <Rect width={THUMB} height={THUMB} fill="url(#stripes)" />
           {outline && (
             <>
               <Path
