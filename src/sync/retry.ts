@@ -28,6 +28,19 @@ export class GiveUpError extends Error {
 }
 
 /**
+ * Thrown by an upload handler when the item can't go yet for a reason that
+ * isn't a failure, e.g. its photos wait for Wi-Fi. The outbox leaves it as
+ * it is: no attempt counted and no backoff, so it goes on the first run once
+ * the reason is gone.
+ */
+export class NotYetError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotYetError';
+  }
+}
+
+/**
  * API errors that will fail the same way however often they're retried:
  * 400 bad data, 403/404 not this user's (or deleted), 409 conflicts other than
  * missing points (which a resend fixes). Network errors, 401 (session, handled

@@ -31,6 +31,8 @@ const dark = {
   errBg: '#2f1d1a',
   glass: 'rgba(5,2,6,0.82)',
   glow: 'rgba(154,129,116,0.28)',
+  // The switch knob: white in both themes, as in the design.
+  knob: '#ffffff',
 };
 
 export type Palette = typeof dark;
@@ -63,6 +65,8 @@ const light: Palette = {
   errBg: '#f8e9e6',
   glass: 'rgba(255,255,255,0.88)',
   glow: 'rgba(154,129,116,0.22)',
+  // The switch knob: white in both themes, as in the design.
+  knob: '#ffffff',
 };
 
 export const palettes = { dark, light } as const;

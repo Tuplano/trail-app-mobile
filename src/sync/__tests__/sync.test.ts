@@ -6,12 +6,20 @@ import { countFailedHikes, resetFailedHikes, setSyncStatus } from '@/db/hikes';
 import { countWaiting, enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox';
 
 import { processOutbox } from '../process-outbox';
-import { isOnline, requestSync, retryHikeUpload, retryUploads, startSync } from '../sync';
+import {
+  isOnline,
+  isUnmetered,
+  requestSync,
+  retryHikeUpload,
+  retryUploads,
+  startSync,
+} from '../sync';
 import { INITIAL_SYNC_SNAPSHOT, useSyncStatusStore } from '../sync-status-store';
 
 jest.mock('expo-network', () => ({
   getNetworkStateAsync: jest.fn(),
   addNetworkStateListener: jest.fn(),
+  NetworkStateType: { WIFI: 'WIFI', ETHERNET: 'ETHERNET', CELLULAR: 'CELLULAR' },
 }));
 jest.mock('@/db/database', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/hikes', () => ({
@@ -56,6 +64,15 @@ describe('isOnline', () => {
     expect(isOnline({ isConnected: true, isInternetReachable: false })).toBe(false);
     // Unknown reachability: trust the connection; a failed upload is retried.
     expect(isOnline({ isConnected: true })).toBe(true);
+  });
+});
+
+describe('isUnmetered', () => {
+  it('is true on Wi-Fi or a cable, not on mobile data', () => {
+    expect(isUnmetered({ type: Network.NetworkStateType.WIFI })).toBe(true);
+    expect(isUnmetered({ type: Network.NetworkStateType.ETHERNET })).toBe(true);
+    expect(isUnmetered({ type: Network.NetworkStateType.CELLULAR })).toBe(false);
+    expect(isUnmetered({})).toBe(false);
   });
 });
 
@@ -198,6 +215,17 @@ describe('startSync', () => {
     onApp('active');
     await settle();
     expect(process).toHaveBeenCalledTimes(3);
+
+    // From mobile data onto Wi-Fi: photos waiting for Wi-Fi may go now.
+    onNetwork({ ...online, type: Network.NetworkStateType.CELLULAR });
+    await settle();
+    expect(process).toHaveBeenCalledTimes(3);
+    onNetwork({ ...online, type: Network.NetworkStateType.WIFI });
+    await settle();
+    expect(process).toHaveBeenCalledTimes(4);
+    onNetwork({ ...online, type: Network.NetworkStateType.WIFI }); // still on Wi-Fi
+    await settle();
+    expect(process).toHaveBeenCalledTimes(4);
 
     stop();
     expect(appRemove).toHaveBeenCalled();

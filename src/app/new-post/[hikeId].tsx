@@ -14,6 +14,7 @@ import { PhotoStrip } from '@/features/posts/photo-strip';
 import { PrivacyZonesRow } from '@/features/posts/privacy-zones-row';
 import { MAX_CAPTION_LENGTH, shareHike } from '@/features/posts/share-hike';
 import { VisibilityPicker } from '@/features/posts/visibility-picker';
+import { useSettingsStore } from '@/features/settings/settings-store';
 import { useSyncStatusStore } from '@/sync/sync-status-store';
 import { fonts } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
@@ -28,6 +29,7 @@ export default function NewPostScreen() {
   const { hikeId } = useLocalSearchParams<{ hikeId: string }>();
   const detail = useHikeDetail(hikeId);
   const online = useSyncStatusStore((s) => s.online) !== false;
+  const photosOnWifiOnly = useSettingsStore((s) => s.settings.photosOnWifiOnly);
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [caption, setCaption] = useState('');
   const [visibility, setVisibility] = useState<HikeVisibility>('public');
@@ -138,9 +140,11 @@ export default function NewPostScreen() {
               <CloudSlash size={15} color={colors.accentHi} />
             )}
             <Text variant="label" color="muted2" style={styles.noteText}>
-              {online
-                ? 'Photos upload on any connection.'
-                : 'No signal. Your post is saved and will publish with its photos once you are back online.'}
+              {!online
+                ? 'No signal. Your post is saved and will publish with its photos once you are back online.'
+                : photosOnWifiOnly
+                  ? 'Photos upload on Wi-Fi only. You can change this in Settings.'
+                  : 'Photos upload on any connection.'}
             </Text>
           </View>
           <FormError message={error} />

@@ -4,7 +4,7 @@ import { createTestDb } from '@/db/__tests__/test-db';
 import type { Db } from '@/db/types';
 
 import { processOutbox } from '../process-outbox';
-import { GiveUpError, retryDelayMs } from '../retry';
+import { GiveUpError, NotYetError, retryDelayMs } from '../retry';
 
 async function freshDb() {
   const db = createTestDb();
@@ -72,7 +72,10 @@ describe('processOutbox', () => {
       throw new GiveUpError(new Error('HIKE_NOT_FOUND'));
     });
 
-    expect(await processOutbox(db, { hike: upload }, clock(2000))).toEqual({ ...nothing, gaveUp: 1 });
+    expect(await processOutbox(db, { hike: upload }, clock(2000))).toEqual({
+      ...nothing,
+      gaveUp: 1,
+    });
     expect(await countPending(db)).toBe(0);
   });
 
@@ -82,6 +85,28 @@ describe('processOutbox', () => {
 
     expect(await processOutbox(db, {}, clock(2000))).toEqual({ ...nothing, skipped: 1 });
     expect(await countPending(db)).toBe(1);
+  });
+
+  it('leaves an item that must wait as it was: no attempt counted, no backoff', async () => {
+    const db = await freshDb();
+    await enqueue(db, 'post', 'p1', 1000);
+    const upload = jest.fn(async () => {
+      throw new NotYetError('Waiting for Wi-Fi');
+    });
+
+    expect(await processOutbox(db, { post: upload }, clock(2000))).toEqual({
+      ...nothing,
+      skipped: 1,
+    });
+    // Still due at once, so the next run tries again.
+    expect(await getDueItems(db, 2000)).toEqual([
+      expect.objectContaining({
+        entityId: 'p1',
+        attempts: 0,
+        nextAttemptAt: 1000,
+        lastError: null,
+      }),
+    ]);
   });
 
   it('skips items that are not due yet', async () => {

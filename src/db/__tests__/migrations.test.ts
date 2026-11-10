@@ -37,6 +37,7 @@ describe('migrate', () => {
       'outbox',
       'post_photos',
       'posts',
+      'settings',
       'track_points',
     ]);
   });

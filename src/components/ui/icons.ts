@@ -29,3 +29,8 @@ export { InfoIcon as Info } from 'phosphor-react-native/src/icons/Info';
 export { PlusIcon as Plus } from 'phosphor-react-native/src/icons/Plus';
 export { ShareNetworkIcon as ShareNetwork } from 'phosphor-react-native/src/icons/ShareNetwork';
 export { XIcon as X } from 'phosphor-react-native/src/icons/X';
+export { WifiHighIcon as WifiHigh } from 'phosphor-react-native/src/icons/WifiHigh';
+export { BatteryChargingIcon as BatteryCharging } from 'phosphor-react-native/src/icons/BatteryCharging';
+export { SignOutIcon as SignOut } from 'phosphor-react-native/src/icons/SignOut';
+export { TrashIcon as Trash } from 'phosphor-react-native/src/icons/Trash';
+export { GearSixIcon as GearSix } from 'phosphor-react-native/src/icons/GearSix';

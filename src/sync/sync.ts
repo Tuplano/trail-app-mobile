@@ -4,6 +4,8 @@ import { AppState } from 'react-native';
 import { getDb } from '@/db/database';
 import { resetFailedHikes, setSyncStatus } from '@/db/hikes';
 import { enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox';
+import { getSettings } from '@/db/settings';
+import type { Db } from '@/db/types';
 
 import { processOutbox, type UploadHandlers } from './process-outbox';
 import { loadSyncCounts, useSyncStatusStore } from './sync-status-store';
@@ -17,7 +19,7 @@ const HANDLERS: UploadHandlers = {
     uploadHike(db, item, (uploadProgress) =>
       useSyncStatusStore.getState().update({ uploadProgress }),
     ),
-  post: uploadPost,
+  post: (db, item) => uploadPost(db, item, () => photosAllowedNow(db)),
 };
 
 /**
@@ -27,6 +29,19 @@ const HANDLERS: UploadHandlers = {
  */
 export function isOnline(state: Network.NetworkState): boolean {
   return state.isConnected === true && state.isInternetReachable !== false;
+}
+
+/** Wi-Fi or a cable: connections that don't use up a mobile data plan. */
+export function isUnmetered(state: Network.NetworkState): boolean {
+  return (
+    state.type === Network.NetworkStateType.WIFI || state.type === Network.NetworkStateType.ETHERNET
+  );
+}
+
+/** Whether photos may upload on the connection the phone has right now. */
+async function photosAllowedNow(db: Db): Promise<boolean> {
+  const { photosOnWifiOnly } = await getSettings(db);
+  return !photosOnWifiOnly || isUnmetered(await Network.getNetworkStateAsync());
 }
 
 let running: Promise<void> | null = null;
@@ -149,12 +164,18 @@ async function syncAfterReconnect(): Promise<void> {
 export function startSync(): () => void {
   started = true;
   let wasOnline: boolean | null = null;
+  let wasUnmetered = false;
   const network = Network.addNetworkStateListener((state) => {
     const online = isOnline(state);
+    const unmetered = online && isUnmetered(state);
     showStatus({ online });
-    if (online && wasOnline === false) void syncAfterReconnect(); // just came back online
-    else if (online && wasOnline === null) requestSync(); // first check
+    if (online && wasOnline === false)
+      void syncAfterReconnect(); // just came back online
+    else if (online && wasOnline === null)
+      requestSync(); // first check
+    else if (unmetered && !wasUnmetered) requestSync(); // onto Wi-Fi: photos may go now
     wasOnline = online;
+    wasUnmetered = unmetered;
   });
   const app = AppState.addEventListener('change', (state) => {
     if (state === 'active') requestSync();

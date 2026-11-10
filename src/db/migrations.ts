@@ -80,6 +80,16 @@ export const MIGRATIONS: readonly string[] = [
     UNIQUE (post_id, position)
   );
   `,
+
+  // 3: the hiker's settings, one row per setting. Values are text; see
+  // settings.ts for each setting's type and default (a missing row means
+  // the default).
+  `
+  CREATE TABLE settings (
+    key   TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  ) WITHOUT ROWID;
+  `,
 ];
 
 /** The schema version this build of the app expects. */

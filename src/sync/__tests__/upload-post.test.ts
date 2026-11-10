@@ -7,7 +7,7 @@ import { createPost, getPost } from '@/db/posts';
 import { createTestDb } from '@/db/__tests__/test-db';
 
 import { deletePhotoFile, uploadPhotoFile } from '../photo-files';
-import { GiveUpError } from '../retry';
+import { GiveUpError, NotYetError } from '../retry';
 import { HikeNotUploadedError, uploadPost } from '../upload-post';
 
 jest.mock('expo-crypto', () => ({
@@ -128,6 +128,34 @@ describe('uploadPost', () => {
     expect((await getPost(db, postId))!.syncStatus).toBe('synced');
     // The server has the photos now, so the phone's copies go.
     expect(deletePhotoFile).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits, without failing, while photos may not upload on this connection', async () => {
+    const { db, postId, item } = await sharedHike();
+    const photosAllowed = jest.fn(async () => false);
+
+    await expect(uploadPost(db, item, photosAllowed)).rejects.toBeInstanceOf(NotYetError);
+
+    expect(put).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect((await getPost(db, postId))!.syncStatus).toBe('pending');
+  });
+
+  it("doesn't wait for Wi-Fi once every photo is uploaded", async () => {
+    const { db, postId, item } = await sharedHike();
+    const saved = (await getPost(db, postId))!;
+    for (const [i, photo] of saved.photos.entries()) {
+      await db.runAsync('UPDATE post_photos SET upload_key = ? WHERE id = ?', [
+        `uploads/me/${i}`,
+        photo.id,
+      ]);
+    }
+
+    await uploadPost(db, item, async () => false);
+
+    expect(presigns()).toEqual([]);
+    expect(postBodies()).toHaveLength(1);
+    expect((await getPost(db, postId))!.syncStatus).toBe('synced');
   });
 
   it('waits for the hike to upload first, sending nothing', async () => {

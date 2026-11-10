@@ -6,7 +6,7 @@ import { clearPhotoUploadKeys, getPost, setPhotoUploadKey, setPostSyncStatus } f
 import type { Db } from '@/db/types';
 
 import { deletePhotoFile, uploadPhotoFile } from './photo-files';
-import { GiveUpError, isPermanent } from './retry';
+import { GiveUpError, isPermanent, NotYetError } from './retry';
 import { toUpsertBody } from './upload-hike';
 
 /** The post can't go up before its hike: the API needs the finished hike first. */
@@ -20,7 +20,9 @@ export class HikeNotUploadedError extends Error {
 /**
  * Uploads one shared hike:
  *
- * 1. Waits for the hike itself to be uploaded (the outbox retries later).
+ * 1. Waits for the hike itself to be uploaded (the outbox retries later),
+ *    and, if photos still need uploading, for a connection they may use
+ *    (`photosAllowed`: Wi-Fi, unless the hiker allows mobile data).
  * 2. PUT /hikes/{id}: sends the hike again, so the server has who can see it.
  * 3. Each photo not uploaded yet: POST /uploads/presign for a link, PUT the
  *    file there, and remember its key so a retry skips it.
@@ -30,7 +32,11 @@ export class HikeNotUploadedError extends Error {
  * sending it twice returns the same post. Throws on failure: GiveUpError when
  * retrying can't help (the post is marked 'failed'), anything else to retry.
  */
-export async function uploadPost(db: Db, item: OutboxItem): Promise<void> {
+export async function uploadPost(
+  db: Db,
+  item: OutboxItem,
+  photosAllowed: () => Promise<boolean> = async () => true,
+): Promise<void> {
   const post = await getPost(db, item.entityId);
   if (!post) return; // deleted on the phone: nothing to upload
   const hike = await getHike(db, post.hikeId);
@@ -44,6 +50,10 @@ export async function uploadPost(db: Db, item: OutboxItem): Promise<void> {
   }
   // Usually the hike is uploaded first anyway: it was queued first.
   if (hike.syncStatus !== 'synced') throw new HikeNotUploadedError();
+  // The post can't be created before its photos are uploaded, so it waits too.
+  if (post.photos.some((photo) => !photo.uploadKey) && !(await photosAllowed())) {
+    throw new NotYetError('Waiting for Wi-Fi to upload the photos');
+  }
 
   await setPostSyncStatus(db, post.id, 'syncing');
   try {

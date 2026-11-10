@@ -1,14 +1,15 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { StyleSheet, type TextInputInstance, View } from 'react-native';
+import { Pressable, StyleSheet, type TextInputInstance, View } from 'react-native';
 
 import { errorMessage } from '@/api/errors';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
+import { GearSix } from '@/components/ui/icons';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
-import { signOut } from '@/features/auth/auth-api';
 import { useAuthStore } from '@/features/auth/auth-store';
 import type { User } from '@/features/auth/session-storage';
 import { describeAuthError, type FieldErrors } from '@/features/auth/validation';
@@ -48,8 +49,6 @@ export default function ProfileScreen() {
         saved={update.isSuccess}
         error={update.error}
       />
-
-      <Button label="Sign out" variant="secondary" onPress={signOut} style={styles.signOut} />
     </Screen>
   );
 }
@@ -66,7 +65,11 @@ function ProfileHeader({ user }: { user: User }) {
       <View
         style={[styles.avatar, { backgroundColor: colors.tint, borderColor: colors.accentDim }]}>
         {user.avatarUrl ? (
-          <Image source={user.avatarUrl} style={styles.avatarImage} accessibilityIgnoresInvertColors />
+          <Image
+            source={user.avatarUrl}
+            style={styles.avatarImage}
+            accessibilityIgnoresInvertColors
+          />
         ) : (
           <Text variant="heading" color="accentText">
             {initials(user.displayName)}
@@ -80,6 +83,17 @@ function ProfileHeader({ user }: { user: User }) {
           {user.email} · Joined {joined}
         </Text>
       </View>
+      {/* Settings, as in the design: a round button beside the name. Sign out lives there. */}
+      <Pressable
+        onPress={() => router.push('/settings')}
+        accessibilityRole="button"
+        accessibilityLabel="Settings"
+        style={({ pressed }) => [
+          styles.settings,
+          { borderColor: colors.line, backgroundColor: pressed ? colors.hover : 'transparent' },
+        ]}>
+        <GearSix size={20} color={colors.text} />
+      </Pressable>
     </View>
   );
 }
@@ -147,7 +161,11 @@ function ProfileForm({ user, onSave, saving, saved, error }: ProfileFormProps) {
         style={styles.save}
       />
       {saved && !dirty ? (
-        <Text variant="small" color="muted2" accessibilityLiveRegion="polite" style={styles.savedNote}>
+        <Text
+          variant="small"
+          color="muted2"
+          accessibilityLiveRegion="polite"
+          style={styles.savedNote}>
           Profile saved.
         </Text>
       ) : null}
@@ -194,7 +212,13 @@ const styles = StyleSheet.create({
   savedNote: {
     textAlign: 'center',
   },
-  signOut: {
-    marginTop: 'auto',
+  settings: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
   },
 });

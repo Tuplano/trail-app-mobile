@@ -1,11 +1,12 @@
 import { getDueItems, markDone, markFailed, type OutboxItem, type OutboxKind } from '@/db/outbox';
 import type { Db } from '@/db/types';
 
-import { GiveUpError, retryDelayMs } from './retry';
+import { GiveUpError, NotYetError, retryDelayMs } from './retry';
 
 /**
  * Uploads one outbox item. Throws if the upload failed: a GiveUpError when
- * retrying can't help (the item is dropped), anything else to retry later.
+ * retrying can't help (the item is dropped), a NotYetError when it must wait
+ * (it stays as it is), anything else to retry later.
  */
 export type UploadHandler = (db: Db, item: OutboxItem) => Promise<void>;
 
@@ -14,6 +15,7 @@ export type UploadHandlers = Partial<Record<OutboxKind, UploadHandler>>;
 
 const BATCH = 20;
 
+/** What a run did. `skipped`: left in the queue as it was (no handler yet, or not yet). */
 export type OutboxRun = { uploaded: number; failed: number; gaveUp: number; skipped: number };
 
 /**
@@ -47,6 +49,10 @@ export async function processOutbox(
         await markDone(db, item.id);
         run.uploaded++;
       } catch (error) {
+        if (error instanceof NotYetError) {
+          run.skipped++;
+          continue;
+        }
         if (error instanceof GiveUpError) {
           console.warn(`Gave up uploading ${item.kind} ${item.entityId}`, error.reason);
           await markDone(db, item.id);
