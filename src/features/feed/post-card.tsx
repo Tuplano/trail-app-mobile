@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import type { ComponentType } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/ui/avatar';
 import {
   ChatCircle,
   Clock,
@@ -13,7 +13,6 @@ import {
   Warning,
 } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import { initials } from '@/features/profile/validation';
 import { fonts } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
 
@@ -32,6 +31,8 @@ export type PostCardProps = {
   /** Hidden for a post that isn't on the server yet. */
   likes?: { count: number; liked: boolean; onPress: () => void } | null;
   comments?: { count: number; onPress: () => void } | null;
+  /** Opens the author's profile when their name or picture is tapped. */
+  onAuthorPress?: () => void;
 };
 
 /**
@@ -49,6 +50,7 @@ export function PostCard({
   caption,
   likes = null,
   comments = null,
+  onAuthorPress,
 }: PostCardProps) {
   const colors = useColors();
 
@@ -59,23 +61,21 @@ export function PostCard({
         { borderBottomColor: colors.line2, opacity: status === 'queued' ? 0.72 : 1 },
       ]}>
       <View style={styles.header}>
-        <View style={[styles.avatar, { backgroundColor: colors.tint }]}>
-          {author.avatarUrl ? (
-            <Image source={{ uri: author.avatarUrl }} style={styles.avatarImage} />
-          ) : (
-            <Text style={[styles.initials, { color: colors.accentText }]}>
-              {initials(author.name)}
+        <Pressable
+          onPress={onAuthorPress}
+          disabled={!onAuthorPress}
+          accessibilityRole={onAuthorPress ? 'link' : undefined}
+          style={styles.author}>
+          <Avatar name={author.name} url={author.avatarUrl} />
+          <View style={styles.headerText}>
+            <Text variant="small" style={styles.name} numberOfLines={1}>
+              {author.name}
             </Text>
-          )}
-        </View>
-        <View style={styles.headerText}>
-          <Text variant="small" style={styles.name} numberOfLines={1}>
-            {author.name}
-          </Text>
-          <Text variant="label" color="muted2" numberOfLines={1}>
-            {subtitle}
-          </Text>
-        </View>
+            <Text variant="label" color="muted2" numberOfLines={1}>
+              {subtitle}
+            </Text>
+          </View>
+        </Pressable>
         {status && (
           <View
             style={[
@@ -169,21 +169,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 18,
   },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  author: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  initials: {
-    fontFamily: fonts.sans[600],
-    fontSize: 13,
+    gap: 10,
   },
   headerText: {
     flex: 1,

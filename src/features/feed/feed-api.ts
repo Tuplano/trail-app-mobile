@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
+import { type QueryFilters, useInfiniteQuery, useMutation } from '@tanstack/react-query';
 
 import { api } from '@/api/client';
 import { toApiError } from '@/api/errors';
@@ -14,6 +14,13 @@ import {
 } from './feed-cache';
 
 export const FEED_QUERY_KEY = ['feed'] as const;
+/** Someone's posts, for their profile: the same shape as the feed. */
+export const userPostsKey = (userId: string) => ['user-posts', userId] as const;
+
+/** Every list of posts on screen (the feed, profiles), so a like shows in all of them. */
+const POST_LISTS: QueryFilters = {
+  predicate: (query) => query.queryKey[0] === 'feed' || query.queryKey[0] === 'user-posts',
+};
 const commentsKey = (postId: string) => ['comments', postId] as const;
 
 type Feed = Parameters<typeof withLike>[0];
@@ -55,16 +62,18 @@ export function useToggleLike() {
     },
     onMutate: async ({ postId, like }) => {
       // A refetch landing now would overwrite the guess with old numbers.
-      await queryClient.cancelQueries({ queryKey: FEED_QUERY_KEY });
-      const before = queryClient.getQueryData<Feed>(FEED_QUERY_KEY);
-      if (before) queryClient.setQueryData(FEED_QUERY_KEY, withLike(before, postId, like));
+      await queryClient.cancelQueries(POST_LISTS);
+      const before = queryClient.getQueriesData<Feed>(POST_LISTS);
+      queryClient.setQueriesData<Feed>(POST_LISTS, (feed) =>
+        feed ? withLike(feed, postId, like) : feed,
+      );
       return { before };
     },
     onError: (_error, _vars, context) => {
-      if (context?.before) queryClient.setQueryData(FEED_QUERY_KEY, context.before);
+      for (const [key, data] of context?.before ?? []) queryClient.setQueryData(key, data);
     },
     onSuccess: (state, { postId }) => {
-      queryClient.setQueryData<Feed>(FEED_QUERY_KEY, (feed) =>
+      queryClient.setQueriesData<Feed>(POST_LISTS, (feed) =>
         feed ? withLike(feed, postId, state.liked, state.likeCount) : feed,
       );
     },
@@ -105,7 +114,7 @@ export function useAddComment(postId: string | null) {
     },
     onSuccess: async () => {
       if (!postId) return;
-      queryClient.setQueryData<Feed>(FEED_QUERY_KEY, (feed) =>
+      queryClient.setQueriesData<Feed>(POST_LISTS, (feed) =>
         feed ? withOneMoreComment(feed, postId) : feed,
       );
       // The new comment is last; reloading the pages puts it where the server has it.

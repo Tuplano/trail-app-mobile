@@ -589,6 +589,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find people to follow
+         * @description People whose @username starts with q or whose name contains it, ignoring case (a leading @ is fine). An exact username comes first. Never yourself. Up to 20 by default, each with whether you follow them.
+         */
+        get: operations["FollowsController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/follow": {
         parameters: {
             query?: never;
@@ -1472,6 +1492,17 @@ export interface components {
             }[];
             /** @description Pass as cursor for the next page; null on the last page */
             nextCursor: string | null;
+        };
+        UserSearchDto: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                username: string;
+                displayName: string;
+                avatarUrl: string | null;
+                /** @description Whether you follow them, for their follow button */
+                isFollowing: boolean;
+            }[];
         };
         FollowListDto: {
             items: {
@@ -3357,6 +3388,51 @@ export interface operations {
             };
             /** @description USER_NOT_FOUND */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    FollowsController_search: {
+        parameters: {
+            query: {
+                limit?: number;
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSearchDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
