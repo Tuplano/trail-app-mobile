@@ -1,6 +1,6 @@
 import type { Hike, HistoryHike } from '@/db/hikes';
 import { formatKm } from '@/features/record/format';
-import type { SyncSnapshot } from '@/sync/sync-status-store';
+import type { SyncSnapshot, UploadProgress } from '@/sync/sync-status-store';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -96,12 +96,18 @@ export type HikeSyncView = {
 /**
  * Turns a hike's upload state into what its history row shows. `online` is
  * null until the first network check; then it's treated as online.
+ * `progress` is the upload going on right now, if it is this hike's.
  */
 export function describeHikeSync(
-  hike: Pick<HistoryHike, 'syncStatus' | 'pointCount'>,
+  hike: Pick<HistoryHike, 'id' | 'syncStatus' | 'pointCount'>,
   online: boolean | null,
+  progress: UploadProgress | null = null,
 ): HikeSyncView {
-  switch (hike.syncStatus) {
+  const mine = progress?.hikeId === hike.id ? progress : null;
+  // The list is read from the database a moment before the upload marks the
+  // hike 'syncing', so a pending hike that is uploading shows as uploading.
+  const status = mine && hike.syncStatus === 'pending' ? 'syncing' : hike.syncStatus;
+  switch (status) {
     case 'pending':
       return {
         chip: 'pending',
@@ -110,7 +116,14 @@ export function describeHikeSync(
         canRetry: false,
       };
     case 'syncing':
-      return { chip: 'uploading', note: 'Uploading points…', problem: false, canRetry: false };
+      return {
+        chip: 'uploading',
+        note: mine
+          ? `Uploading points ${formatCount(mine.sent)} / ${formatCount(mine.total)}`
+          : 'Uploading points…',
+        problem: false,
+        canRetry: false,
+      };
     case 'synced':
       return {
         chip: 'synced',

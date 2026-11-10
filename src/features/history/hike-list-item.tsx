@@ -49,8 +49,12 @@ const CHIPS: Record<SyncChip, { label: string; Icon: Icon; color: ColorName; bg:
 export function HikeListItem({ hike }: { hike: HistoryHike }) {
   const colors = useColors();
   const online = useSyncStatusStore((s) => s.online);
+  // Only this hike's upload, so the other rows don't re-render on every chunk.
+  const progress = useSyncStatusStore((s) =>
+    s.uploadProgress?.hikeId === hike.id ? s.uploadProgress : null,
+  );
   const [retrying, setRetrying] = useState(false);
-  const sync = describeHikeSync(hike, online);
+  const sync = describeHikeSync(hike, online, progress);
   const chip = CHIPS[sync.chip];
 
   const title = hikeTitle(hike);

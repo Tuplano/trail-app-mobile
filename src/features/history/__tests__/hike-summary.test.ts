@@ -93,6 +93,7 @@ describe('summarizeHistory', () => {
 
 describe('describeHikeSync', () => {
   const hike = (syncStatus: 'pending' | 'syncing' | 'synced' | 'failed', pointCount = 1488) => ({
+    id: 'hike-1',
     syncStatus,
     pointCount,
   });
@@ -115,6 +116,28 @@ describe('describeHikeSync', () => {
       chip: 'uploading',
       note: 'Uploading points…',
     });
+  });
+
+  it('counts the points sent so far, as in the design', () => {
+    const progress = { hikeId: 'hike-1', sent: 600, total: 1488 };
+    expect(describeHikeSync(hike('syncing'), true, progress).note).toBe(
+      'Uploading points 600 / 1,488',
+    );
+    // Another hike's upload says nothing about this one.
+    const other = { ...progress, hikeId: 'hike-2' };
+    expect(describeHikeSync(hike('syncing'), true, other).note).toBe('Uploading points…');
+    expect(describeHikeSync(hike('pending'), true, other).chip).toBe('pending');
+  });
+
+  it('shows a pending hike as uploading once its upload has started', () => {
+    const progress = { hikeId: 'hike-1', sent: 0, total: 1488 };
+    expect(describeHikeSync(hike('pending'), true, progress)).toMatchObject({
+      chip: 'uploading',
+      note: 'Uploading points 0 / 1,488',
+    });
+    // A finished upload's progress doesn't change a synced or failed hike.
+    expect(describeHikeSync(hike('synced'), true, progress).chip).toBe('synced');
+    expect(describeHikeSync(hike('failed'), true, progress).chip).toBe('failed');
   });
 
   it('counts the track points of an uploaded hike', () => {

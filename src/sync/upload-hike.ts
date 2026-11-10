@@ -7,6 +7,7 @@ import { countTrackPoints, getTrackPoints } from '@/db/track-points';
 import type { Db } from '@/db/types';
 
 import { GiveUpError, isPermanent } from './retry';
+import type { UploadProgress } from './sync-status-store';
 
 /** The API takes at most this many points per request. */
 export const POINTS_PER_CHUNK = 500;
@@ -28,8 +29,20 @@ export function toUpsertBody(hike: Hike): UpsertHikeBody {
   };
 }
 
-/** Sends the hike's points from `fromSeq` to `toSeq` (inclusive), 500 per request. */
-async function sendPoints(db: Db, hikeId: string, fromSeq: number, toSeq: number): Promise<void> {
+/** Told how far an upload has got, so the history can show it; null once it stops. */
+export type ReportProgress = (progress: UploadProgress | null) => void;
+
+/**
+ * Sends the hike's points from `fromSeq` to `toSeq` (inclusive), 500 per
+ * request, calling `onSent` with the count after each request the server took.
+ */
+async function sendPoints(
+  db: Db,
+  hikeId: string,
+  fromSeq: number,
+  toSeq: number,
+  onSent: (count: number) => void = () => {},
+): Promise<void> {
   for (let seq = fromSeq; seq <= toSeq; ) {
     const limit = Math.min(POINTS_PER_CHUNK, toSeq - seq + 1);
     const points = await getTrackPoints(db, hikeId, seq, limit);
@@ -40,6 +53,7 @@ async function sendPoints(db: Db, hikeId: string, fromSeq: number, toSeq: number
     });
     if (!sent.data) throw toApiError(sent.error, sent.response);
     seq += points.length;
+    onSent(points.length);
   }
 }
 
@@ -55,8 +69,13 @@ async function sendPoints(db: Db, hikeId: string, fromSeq: number, toSeq: number
  *
  * Every step is safe to repeat. Throws on failure: GiveUpError when retrying
  * can never work (the hike is marked 'failed'), anything else to retry later.
+ * `report` hears how many points the server has so far ("600 / 1,488").
  */
-export async function uploadHike(db: Db, item: OutboxItem): Promise<void> {
+export async function uploadHike(
+  db: Db,
+  item: OutboxItem,
+  report: ReportProgress = () => {},
+): Promise<void> {
   const hike = await getHike(db, item.entityId);
   if (!hike) return; // deleted on the phone: nothing to upload, so it's done
 
@@ -70,7 +89,13 @@ export async function uploadHike(db: Db, item: OutboxItem): Promise<void> {
     if (!status.data) throw toApiError(status.error, status.response);
     const totalPoints = await countTrackPoints(db, hike.id);
     const resumeFrom = (status.data.highestContinuousSeq ?? -1) + 1;
-    await sendPoints(db, hike.id, resumeFrom, totalPoints - 1);
+    // Counts from what the server already has, so a resumed upload doesn't start at 0.
+    let sent = Math.min(resumeFrom, totalPoints);
+    report({ hikeId: hike.id, sent, total: totalPoints });
+    await sendPoints(db, hike.id, resumeFrom, totalPoints - 1, (count) => {
+      sent += count;
+      report({ hikeId: hike.id, sent, total: totalPoints });
+    });
 
     const finish = () =>
       api.POST('/api/v1/hikes/{id}/finish', { params, body: { totalPoints } });
@@ -90,5 +115,7 @@ export async function uploadHike(db: Db, item: OutboxItem): Promise<void> {
     }
     await setSyncStatus(db, hike.id, 'pending'); // the outbox retries it later
     throw error;
+  } finally {
+    report(null);
   }
 }

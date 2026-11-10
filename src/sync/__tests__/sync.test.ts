@@ -181,9 +181,15 @@ describe('startSync', () => {
 
     onNetwork(offline);
     await settle();
+    expect(makeAllDue).not.toHaveBeenCalled();
     onNetwork(online); // back online
     await settle();
     expect(process).toHaveBeenCalledTimes(2);
+    // An upload cut off by the lost signal doesn't wait out its retry time.
+    expect(makeAllDue).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(makeAllDue).mock.invocationCallOrder[0]).toBeLessThan(
+      process.mock.invocationCallOrder[1],
+    );
 
     onNetwork(online); // still online: no extra sync
     await settle();

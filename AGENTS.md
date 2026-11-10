@@ -45,7 +45,7 @@ Docs: https://docs.expo.dev/eas/index.md
 Work comes from the Notion **Mobile Tasks** board (Trail App → Mobile Tasks, data source `collection://4d085d9e-9c15-45b1-9c85-fe419a8caca2`). Work on one task at a time, in `Order`. Ask before skipping or reordering a task.
 
 1. **Start:** set the task's Status to **In progress** before writing code.
-2. **Build:** follow the existing patterns in the app (see below).
+2. **Build:** base the task on the design (see "Follow the design" below) and follow the existing patterns in the app.
 3. **Check:** run lint, typecheck and tests (`npm test`). They must pass before the task is reported as finished.
 4. **Explain:** when the task is built, explain it in simple, plain words that someone learning React Native can follow:
    - **What it does** from the user's point of view, and how it works in a few sentences.
@@ -55,6 +55,15 @@ Work comes from the Notion **Mobile Tasks** board (Trail App → Mobile Tasks, d
    - A suggested commit message.
 5. **Commit:** the user reviews and commits. Don't commit unless asked.
 6. **Done:** only after the user says they committed: check the commit in `git log`, set Status to **Done**, and write a one-line summary plus the commit hash in the task's Notes. Never mark a task Done before that.
+
+## Follow the design
+
+Every task is based on the **Trail Mobile** Claude Design project: https://claude.ai/design/p/7df451d6-0b65-457b-9b7d-8e148cbc5d82?file=Trail+Mobile.dc.html (main file `Trail Mobile.dc.html`, which imports `support.js`).
+
+- **Before building:** find the design screen(s) the task touches (sign-in, permissions, record, history, detail, compose, feed, privacy, profile, maps, settings) and build to them: layout, states, and the exact wording of labels, chips, notes and empty/offline messages. The colors in `src/theme/tokens.ts` come from the design.
+- **Look at it rendered**, not only at its markup. The app is dark, like the design, with four tabs: Record, History, Feed, Profile. A screen that isn't built yet gets a "coming soon" placeholder.
+- **If the task and the design disagree**, or the design needs something the API doesn't have yet, ask before choosing.
+- **Before reporting:** compare a screenshot of the app with the design, and list any differences that remain and why.
 
 ## Follow the existing patterns
 

@@ -198,6 +198,42 @@ describe('uploadHike', () => {
     expect(await syncStatus(db, hike.id)).toBe('failed');
   });
 
+  it('reports how many points the server has after each request', async () => {
+    const { db, hike, item } = await finishedHike(1201);
+    const report = jest.fn();
+
+    await uploadHike(db, item, report);
+
+    expect(report.mock.calls.map(([p]) => p)).toEqual([
+      { hikeId: hike.id, sent: 0, total: 1201 },
+      { hikeId: hike.id, sent: 500, total: 1201 },
+      { hikeId: hike.id, sent: 1000, total: 1201 },
+      { hikeId: hike.id, sent: 1201, total: 1201 },
+      null, // done: nothing uploading
+    ]);
+  });
+
+  it('counts a resumed upload from what the server already has', async () => {
+    const { db, hike, item } = await finishedHike(1201);
+    serverHas(699);
+    const report = jest.fn();
+
+    await uploadHike(db, item, report);
+
+    expect(report.mock.calls[0][0]).toEqual({ hikeId: hike.id, sent: 700, total: 1201 });
+  });
+
+  it('stops reporting progress when the upload fails', async () => {
+    const { db, item } = await finishedHike(1201);
+    post.mockResolvedValueOnce(ok()).mockRejectedValueOnce(new TypeError('Network request failed'));
+    const report = jest.fn();
+
+    await expect(uploadHike(db, item, report)).rejects.toThrow('Network request failed');
+
+    expect(report.mock.calls.at(-2)?.[0]).toMatchObject({ sent: 500 });
+    expect(report).toHaveBeenLastCalledWith(null);
+  });
+
   it('treats a hike deleted on the phone as done', async () => {
     const { db, hike, item } = await finishedHike(10);
     await deleteHike(db, hike.id);

@@ -11,7 +11,11 @@ import { uploadHike } from './upload-hike';
 
 /** What uploads each kind of outbox item. */
 const HANDLERS: UploadHandlers = {
-  hike: uploadHike,
+  // Shows how far the upload has got in the history.
+  hike: (db, item) =>
+    uploadHike(db, item, (uploadProgress) =>
+      useSyncStatusStore.getState().update({ uploadProgress }),
+    ),
 };
 
 /**
@@ -122,6 +126,20 @@ export async function retryHikeUpload(hikeId: string): Promise<void> {
 }
 
 /**
+ * The signal is back after being lost. An upload that failed meanwhile failed
+ * for lack of signal, not because the server is broken, so don't make it sit
+ * out its retry wait (up to an hour): make everything due and sync now.
+ */
+async function syncAfterReconnect(): Promise<void> {
+  try {
+    await makeAllDue(await getDb());
+  } catch (error) {
+    console.warn('Could not cut the retry wait short', error);
+  }
+  await requestSync();
+}
+
+/**
  * Starts syncing automatically: now, whenever the internet comes back,
  * whenever the app returns to the foreground, and when a failed item is due
  * to be retried. Returns a function that stops it.
@@ -132,7 +150,8 @@ export function startSync(): () => void {
   const network = Network.addNetworkStateListener((state) => {
     const online = isOnline(state);
     showStatus({ online });
-    if (online && wasOnline !== true) requestSync(); // just came back online
+    if (online && wasOnline === false) void syncAfterReconnect(); // just came back online
+    else if (online && wasOnline === null) requestSync(); // first check
     wasOnline = online;
   });
   const app = AppState.addEventListener('change', (state) => {

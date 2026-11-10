@@ -4,6 +4,9 @@ import { countFailedHikes } from '@/db/hikes';
 import { countWaiting } from '@/db/outbox';
 import type { Db } from '@/db/types';
 
+/** How far the hike being uploaded has got: points the server has, of all its points. */
+export type UploadProgress = { hikeId: string; sent: number; total: number };
+
 /** What the sync status indicator needs to know. */
 export type SyncSnapshot = {
   /** Hikes in the outbox, still to upload. */
@@ -16,6 +19,8 @@ export type SyncSnapshot = {
   syncing: boolean;
   /** Whether the phone has working internet; null until first checked. */
   online: boolean | null;
+  /** The hike uploading right now and how far it has got; null between uploads. */
+  uploadProgress: UploadProgress | null;
 };
 
 type SyncStatusState = SyncSnapshot & {
@@ -28,6 +33,7 @@ export const INITIAL_SYNC_SNAPSHOT: SyncSnapshot = {
   failed: 0,
   syncing: false,
   online: null,
+  uploadProgress: null,
 };
 
 /**
