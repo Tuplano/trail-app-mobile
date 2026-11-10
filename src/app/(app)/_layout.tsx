@@ -6,14 +6,17 @@ import { queueFinishedHikes } from '@/sync/queue-hikes';
 import { startSync } from '@/sync/sync';
 import { useRecorderStore } from '@/tracking/recorder-store';
 
-/** The signed-in part of the app. The design's tab bar replaces these tabs in a later task. */
+/**
+ * The signed-in part of the app: the bottom tabs (see AppTabs), plus two jobs
+ * on launch: picking an unfinished hike back up, and starting the upload sync.
+ */
 export default function AppLayout() {
   useEffect(() => {
     let stopSync: (() => void) | undefined;
     let unmounted = false;
 
     // If the app was closed or crashed mid-hike, pick that hike back up and
-    // show it, so the hiker doesn't land on Home unaware it's still running.
+    // show it, so the hiker doesn't land on History unaware it's still running.
     useRecorderStore
       .getState()
       .restore()
