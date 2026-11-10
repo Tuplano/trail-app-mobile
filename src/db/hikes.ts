@@ -65,6 +65,25 @@ export async function getHike(db: Db, id: string): Promise<Hike | null> {
 }
 
 /**
+ * Every finished hike on this phone, newest first, for the hike history.
+ * Hikes still being recorded or paused aren't history yet: they show on
+ * the Record screen.
+ *
+ * Hikes without a single GPS point are left out (e.g. finished before the
+ * first fix arrived). They have no route or stats to show, and the outbox
+ * never uploads them, so they'd say "Waiting to upload" forever.
+ */
+export async function listFinishedHikes(db: Db): Promise<Hike[]> {
+  const rows = await db.getAllAsync<HikeRow>(
+    `SELECT * FROM hikes h
+     WHERE h.status = 'finished'
+       AND EXISTS (SELECT 1 FROM track_points p WHERE p.hike_id = h.id)
+     ORDER BY h.started_at DESC`,
+  );
+  return rows.map(toHike);
+}
+
+/**
  * The hike GPS points should go to: the newest one that is recording. Null
  * while paused or finished, so late fixes from the location task are dropped.
  */

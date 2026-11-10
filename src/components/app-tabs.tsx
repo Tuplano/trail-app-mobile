@@ -10,8 +10,12 @@ export default function AppTabs() {
     <NativeTabs
       backgroundColor={colors.bg}
       indicatorColor={colors.tint}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
+      labelStyle={{ selected: { color: colors.text } }}
+      // Home's history is a FlatList, and native tabs can't always tell when a
+      // FlatList is scrolled to the end; without this the bar can turn see-through on iOS.
+      disableTransparentOnScrollEdge>
+      {/* A folder with its own Stack, so a hike's details open inside the tab. */}
+      <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="house" md="home" />
       </NativeTabs.Trigger>

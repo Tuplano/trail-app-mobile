@@ -4,6 +4,7 @@ import {
   deleteHike,
   getHike,
   getRecordingHike,
+  listFinishedHikes,
   resetFailedHikes,
   setHikeStatus,
   setSyncStatus,
@@ -99,5 +100,38 @@ describe('failed uploads', () => {
     expect(await countFailedHikes(db)).toBe(0);
     expect(await getHike(db, failed.id)).toMatchObject({ syncStatus: 'pending' });
     expect(await getHike(db, synced.id)).toMatchObject({ syncStatus: 'synced' });
+  });
+});
+
+const POINT = { recordedAt: 1500, lat: 14.5, lng: 121 };
+
+describe('listFinishedHikes', () => {
+  it('lists only finished hikes, newest first', async () => {
+    const db = await freshDb();
+    const older = await createHike(db, 1000);
+    const newer = await createHike(db, 5000);
+    const unfinished = await createHike(db, 9000);
+    for (const hike of [older, newer, unfinished]) await addTrackPoints(db, hike.id, [POINT]);
+    await setHikeStatus(db, older.id, 'finished', 2000);
+    await setHikeStatus(db, newer.id, 'finished', 6000);
+    await setHikeStatus(db, unfinished.id, 'paused', 9500);
+
+    const hikes = await listFinishedHikes(db);
+    expect(hikes.map((h) => h.id)).toEqual([newer.id, older.id]);
+    expect(hikes[0]).toMatchObject({ startedAt: 5000, endedAt: 6000, syncStatus: 'pending' });
+  });
+
+  it('is empty before any hike is finished', async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 1000);
+    await addTrackPoints(db, id, [POINT]);
+    expect(await listFinishedHikes(db)).toEqual([]);
+  });
+
+  it('leaves out finished hikes without any GPS point', async () => {
+    const db = await freshDb();
+    const empty = await createHike(db, 1000);
+    await setHikeStatus(db, empty.id, 'finished', 2000);
+    expect(await listFinishedHikes(db)).toEqual([]);
   });
 });
