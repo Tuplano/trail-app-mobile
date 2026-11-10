@@ -64,6 +64,9 @@ export async function getHike(db: Db, id: string): Promise<Hike | null> {
   return row ? toHike(row) : null;
 }
 
+/** A hike in the history list: the hike plus how many GPS points it has. */
+export type HistoryHike = Hike & { pointCount: number };
+
 /**
  * Every finished hike on this phone, newest first, for the hike history.
  * Hikes still being recorded or paused aren't history yet: they show on
@@ -71,16 +74,18 @@ export async function getHike(db: Db, id: string): Promise<Hike | null> {
  *
  * Hikes without a single GPS point are left out (e.g. finished before the
  * first fix arrived). They have no route or stats to show, and the outbox
- * never uploads them, so they'd say "Waiting to upload" forever.
+ * never uploads them, so they'd say "Pending" forever.
  */
-export async function listFinishedHikes(db: Db): Promise<Hike[]> {
-  const rows = await db.getAllAsync<HikeRow>(
-    `SELECT * FROM hikes h
+export async function listFinishedHikes(db: Db): Promise<HistoryHike[]> {
+  // The count reads the (hike_id, seq) primary key, so it doesn't scan the points.
+  const rows = await db.getAllAsync<HikeRow & { point_count: number }>(
+    `SELECT h.*, (SELECT COUNT(*) FROM track_points p WHERE p.hike_id = h.id) AS point_count
+     FROM hikes h
      WHERE h.status = 'finished'
        AND EXISTS (SELECT 1 FROM track_points p WHERE p.hike_id = h.id)
      ORDER BY h.started_at DESC`,
   );
-  return rows.map(toHike);
+  return rows.map((row) => ({ ...toHike(row), pointCount: row.point_count }));
 }
 
 /**
@@ -127,6 +132,23 @@ export async function setHikeStats(
     'UPDATE hikes SET distance_m = ?, elevation_gain_m = ?, moving_time_s = ? WHERE id = ?',
     [stats.distanceM, stats.elevationGainM, stats.movingTimeS, id],
   );
+}
+
+/**
+ * Names the hike (null for no name). It's an edit by the hiker, so
+ * client_updated_at moves too: the server keeps the newer of two versions.
+ */
+export async function setHikeTitle(
+  db: Db,
+  id: string,
+  title: string | null,
+  now: number = Date.now(),
+): Promise<void> {
+  const result = await db.runAsync(
+    'UPDATE hikes SET title = ?, client_updated_at = ? WHERE id = ?',
+    [title, now, id],
+  );
+  if (result.changes === 0) throw new Error(`Hike ${id} not found`);
 }
 
 /**

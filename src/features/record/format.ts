@@ -23,10 +23,22 @@ export function formatMeters(meters: number): string {
 }
 
 /**
+ * The Record screen's clock, always with hours like a stopwatch:
+ * 0 s → "0:00:00", 4530 s → "1:15:30".
+ */
+export function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  return `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+}
+
+/** What pace shows until it can be measured, as in the design. */
+export const NO_PACE = '–:––';
+
+/**
  * Average moving pace as minutes per km, e.g. "12:30". A dash until there's
  * enough distance and moving time for the number to be meaningful.
  */
 export function formatPace(movingTimeS: number, distanceM: number): string {
-  if (distanceM < MIN_PACE_DISTANCE_M || movingTimeS <= 0) return '–';
+  if (distanceM < MIN_PACE_DISTANCE_M || movingTimeS <= 0) return NO_PACE;
   return formatDuration(movingTimeS / (distanceM / 1000));
 }

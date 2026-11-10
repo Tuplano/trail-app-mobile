@@ -1,33 +1,36 @@
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BrandMark } from '@/components/ui/brand-mark';
 import { FormError } from '@/components/ui/form-error';
 import { Text } from '@/components/ui/text';
-import { useAuthStore } from '@/features/auth/auth-store';
 import { HikeHistoryEmpty } from '@/features/history/hike-history-empty';
 import { HikeListItem } from '@/features/history/hike-list-item';
+import { summarizeHistory } from '@/features/history/hike-summary';
+import { OutboxStrip } from '@/features/history/outbox-strip';
 import { useHikeHistory } from '@/features/history/use-hikes';
-import { SyncStatusCard } from '@/features/sync/sync-status-card';
 import { useColors } from '@/theme/use-colors';
 
 /**
- * Home: the hike history. Read from the phone, so it works offline and shows
- * hikes that haven't uploaded yet.
+ * History: every finished hike, newest first, with how its upload is going.
+ * Read from the phone, so it works offline and shows hikes not uploaded yet.
  */
-export default function HomeScreen() {
+export default function HistoryScreen() {
   const colors = useColors();
-  const displayName = useAuthStore((s) => s.user?.displayName);
   const { hikes, failed } = useHikeHistory();
 
   const header = (
     <View style={styles.header}>
-      <BrandMark />
-      <Text variant="title" style={styles.greeting}>
-        {displayName ? `Hi, ${displayName}.` : 'Welcome.'}
-      </Text>
-      <SyncStatusCard />
-      {hikes && hikes.length > 0 && <Text variant="heading">Your hikes</Text>}
+      <View style={styles.titleBlock}>
+        <Text variant="title" style={styles.title}>
+          History
+        </Text>
+        {hikes && hikes.length > 0 && (
+          <Text variant="small" color="muted2">
+            {summarizeHistory(hikes)}
+          </Text>
+        )}
+      </View>
+      <OutboxStrip />
       <FormError
         message={failed ? "Couldn't load your hikes. Leave and come back to try again." : null}
       />
@@ -62,18 +65,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   page: {
-    paddingTop: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingTop: 12,
+    paddingHorizontal: 18,
+    paddingBottom: 24,
   },
   header: {
-    gap: 24,
+    gap: 16,
     paddingBottom: 16,
   },
-  greeting: {
-    marginTop: 8,
+  titleBlock: {
+    gap: 4,
+    paddingHorizontal: 4,
+  },
+  title: {
+    fontSize: 30, // the design's History title is a step above `title` (28)
+    lineHeight: 36,
   },
   separator: {
-    height: 12,
+    height: 16,
   },
 });

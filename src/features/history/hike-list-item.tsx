@@ -1,26 +1,70 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import {
+  ArrowClockwise,
+  ArrowsClockwise,
+  CheckCircle,
+  Clock,
+  type IconProps,
+  Path,
+  Timer,
+  TrendUp,
+  Warning,
+} from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
-import type { Hike } from '@/db/hikes';
-import { formatDuration, formatKm, formatMeters } from '@/features/record/format';
-import { radius } from '@/theme/tokens';
+import type { HistoryHike } from '@/db/hikes';
+import { formatKm } from '@/features/record/format';
+import { retryHikeUpload } from '@/sync/sync';
+import { useSyncStatusStore } from '@/sync/sync-status-store';
+import { type ColorName, fonts, radius } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
 
-import { formatHikeDate, hikeDurationS, hikeTitle } from './hike-summary';
-import { UploadBadge } from './upload-badge';
+import {
+  describeHikeSync,
+  formatCount,
+  formatHikeDate,
+  formatHikeDuration,
+  hikeTitle,
+  type SyncChip,
+} from './hike-summary';
+
+type Icon = React.ComponentType<IconProps>;
+
+/** The design's upload chips: label, icon, text color and background. */
+const CHIPS: Record<SyncChip, { label: string; Icon: Icon; color: ColorName; bg: ColorName | null }> =
+  {
+    pending: { label: 'Pending', Icon: Clock, color: 'text2', bg: 'line2' },
+    uploading: { label: 'Uploading', Icon: ArrowsClockwise, color: 'accentText', bg: 'tint' },
+    synced: { label: 'Synced', Icon: CheckCircle, color: 'accentHi', bg: null },
+    failed: { label: 'Failed', Icon: Warning, color: 'err', bg: 'errBg' },
+  };
 
 /**
- * One hike in the history: name, date, the three numbers hikers compare,
- * and an upload badge until the hike is on the server. Tapping opens it.
+ * One hike in the history: name and start time, an upload chip, distance,
+ * moving time and climb, and a note on the upload (with Retry if the server
+ * turned it down). Tapping opens the hike.
  */
-export function HikeListItem({ hike }: { hike: Hike }) {
+export function HikeListItem({ hike }: { hike: HistoryHike }) {
   const colors = useColors();
+  const online = useSyncStatusStore((s) => s.online);
+  const [retrying, setRetrying] = useState(false);
+  const sync = describeHikeSync(hike, online);
+  const chip = CHIPS[sync.chip];
+
   const title = hikeTitle(hike);
   const date = formatHikeDate(hike.startedAt);
   const km = formatKm(hike.distanceM);
-  const duration = formatDuration(hikeDurationS(hike));
-  const gain = formatMeters(hike.elevationGainM);
+  const time = formatHikeDuration(hike.movingTimeS);
+  const gain = formatCount(hike.elevationGainM);
+
+  const retry = () => {
+    setRetrying(true);
+    retryHikeUpload(hike.id)
+      .catch((error: unknown) => console.warn('Could not retry the upload', error))
+      .finally(() => setRetrying(false));
+  };
 
   return (
     // A plain Pressable with router.push, not <Link asChild>: Link's wrapper
@@ -28,44 +72,69 @@ export function HikeListItem({ hike }: { hike: Hike }) {
     <Pressable
       onPress={() => router.push({ pathname: '/hikes/[id]', params: { id: hike.id } })}
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${date}. ${km} kilometers in ${duration}, ${gain} meters climbed.`}
+      accessibilityLabel={`${title}, ${date}. ${km} kilometers, ${time} moving, ${gain} meters up. ${chip.label}.`}
       style={({ pressed }) => [
         styles.card,
-        {
-          backgroundColor: pressed ? colors.hover : colors.surface,
-          borderColor: colors.line2,
-        },
+        { backgroundColor: pressed ? colors.hover : colors.surface, borderColor: colors.line2 },
       ]}>
-      <View style={styles.header}>
-        <Text variant="subheading" style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text variant="small" color="muted">
-          {date}
-        </Text>
+      <View style={styles.top}>
+        <View style={styles.heading}>
+          <Text variant="subheading" style={styles.title}>
+            {title}
+          </Text>
+          <Text variant="label" color="muted2">
+            {date}
+          </Text>
+        </View>
+        <View style={[styles.chip, { backgroundColor: chip.bg ? colors[chip.bg] : 'transparent' }]}>
+          <chip.Icon size={13} color={colors[chip.color]} />
+          <Text variant="label" color={chip.color} style={styles.medium}>
+            {chip.label}
+          </Text>
+        </View>
       </View>
+
       <View style={styles.stats}>
-        <Stat value={km} unit="km" />
-        <Stat value={duration} />
-        <Stat value={gain} unit="m up" />
+        <Stat Icon={Path} value={`${km} km`} />
+        <Stat Icon={Timer} value={time} />
+        <Stat Icon={TrendUp} value={`${gain} m`} />
       </View>
-      {/* Uploaded is the normal end state, so only the exceptions get a badge. */}
-      {hike.syncStatus !== 'synced' && <UploadBadge status={hike.syncStatus} />}
+
+      <View style={styles.bottom}>
+        <Text variant="label" color={sync.problem ? 'err' : 'muted2'} style={styles.note}>
+          {sync.note}
+        </Text>
+        {sync.canRetry && (
+          <Pressable
+            onPress={retry}
+            disabled={retrying}
+            accessibilityRole="button"
+            accessibilityLabel={`Retry uploading ${title}`}
+            accessibilityState={{ busy: retrying }}
+            style={({ pressed }) => [
+              styles.retry,
+              { borderColor: colors.accent, backgroundColor: pressed ? colors.tint : 'transparent' },
+              retrying && styles.busy,
+            ]}>
+            <ArrowClockwise size={13} color={colors.accentText} />
+            <Text variant="label" color="accentText">
+              Retry
+            </Text>
+          </Pressable>
+        )}
+      </View>
     </Pressable>
   );
 }
 
-function Stat({ value, unit }: { value: string; unit?: string }) {
+function Stat({ Icon, value }: { Icon: Icon; value: string }) {
+  const colors = useColors();
   return (
     <View style={styles.stat}>
-      <Text variant="bodyStrong" style={styles.value}>
+      <Icon size={15} color={colors.accentHi} />
+      <Text variant="small" color="text2" style={styles.statValue}>
         {value}
       </Text>
-      {unit && (
-        <Text variant="small" color="muted">
-          {unit}
-        </Text>
-      )}
     </View>
   );
 }
@@ -73,29 +142,68 @@ function Stat({ value, unit }: { value: string; unit?: string }) {
 const styles = StyleSheet.create({
   card: {
     gap: 10,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: radius.card,
     borderWidth: 1,
   },
-  header: {
+  top: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
+  },
+  heading: {
+    flexShrink: 1,
+    gap: 3,
   },
   title: {
-    flexShrink: 1,
+    lineHeight: 21, // the design's 1.3 line height, tighter than the 22 of `subheading`
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 12,
+  },
+  medium: {
+    fontFamily: fonts.sans[500],
   },
   stats: {
     flexDirection: 'row',
-    gap: 20,
+    gap: 16,
   },
   stat: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
+    alignItems: 'center',
+    gap: 6,
   },
-  value: {
+  statValue: {
+    fontSize: 14,
+    lineHeight: 18,
     fontVariant: ['tabular-nums'],
+  },
+  bottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  note: {
+    flexShrink: 1,
+  },
+  retry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 30,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    borderWidth: 1,
+  },
+  busy: {
+    opacity: 0.6,
   },
 });

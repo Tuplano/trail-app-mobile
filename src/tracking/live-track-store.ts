@@ -9,7 +9,10 @@ type LiveTrackState = {
   stats: HikeStats;
   /** The recording hike's saved points, in order, for the live map. */
   path: PathPoint[];
+  /** How accurate the latest GPS fix was, in meters; null until one arrives. */
+  accuracyM: number | null;
   update: (stats: HikeStats, path: PathPoint[]) => void;
+  setAccuracy: (accuracyM: number | null) => void;
   reset: () => void;
 };
 
@@ -21,6 +24,8 @@ type LiveTrackState = {
 export const useLiveTrackStore = create<LiveTrackState>()((set) => ({
   stats: EMPTY_STATS,
   path: [],
+  accuracyM: null,
   update: (stats, path) => set({ stats, path }),
-  reset: () => set({ stats: EMPTY_STATS, path: [] }),
+  setAccuracy: (accuracyM) => set({ accuracyM }),
+  reset: () => set({ stats: EMPTY_STATS, path: [], accuracyM: null }),
 }));

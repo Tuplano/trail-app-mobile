@@ -74,9 +74,10 @@ describe('recorder store', () => {
     expect(finished).toMatchObject({ status: 'finished', syncStatus: 'pending' });
     expect(finished?.endedAt).toEqual(expect.any(Number));
 
-    recorder().reset();
+    await recorder().save('  Mt. Pulag  ');
     expect(recorder()).toMatchObject({ status: 'idle', hikeId: null });
-    expect((await getHike(db, hikeId!))?.status).toBe('finished'); // the hike stays saved
+    // The hike stays saved, under the trimmed name.
+    expect(await getHike(db, hikeId!)).toMatchObject({ status: 'finished', title: 'Mt. Pulag' });
   });
 
   it('runs GPS only while recording', async () => {
@@ -112,7 +113,7 @@ describe('recorder store', () => {
     const { endedAt } = recorder();
     expect(endedAt).toBe((await getHike(db, hike!.id))!.endedAt);
 
-    recorder().reset();
+    await recorder().save('');
     expect(recorder()).toMatchObject({ startedAt: null, endedAt: null });
   });
 
@@ -152,7 +153,8 @@ describe('recorder store', () => {
   it('rejects invalid transitions without touching the database', async () => {
     await expect(recorder().pause()).rejects.toThrow(/idle to paused/);
     await expect(recorder().finish()).rejects.toThrow(/idle to finished/);
-    expect(() => recorder().reset()).toThrow(/idle to idle/);
+    await expect(recorder().save('x')).rejects.toThrow(/idle to idle/);
+    await expect(recorder().discard()).rejects.toThrow(/idle to idle/);
     expect(await hikeCount()).toBe(0);
     expect(canTransition('finished', 'recording')).toBe(false);
   });
@@ -243,16 +245,38 @@ describe('restoring after the app restarts', () => {
   });
 });
 
-describe('queuing for upload', () => {
-  it('puts the hike in the outbox when it is finished', async () => {
+describe('finishing: save or discard', () => {
+  async function finishedHike() {
     const db = await mockDb;
     await recorder().start();
     const { hikeId } = recorder();
     await addTrackPoints(db, hikeId!, [{ recordedAt: Date.now(), lat: 14.6, lng: 121.0 }]);
-    expect(await getDueItems(db)).toEqual([]); // not while recording
-
     await recorder().finish();
+    return { db, hikeId: hikeId! };
+  }
+
+  it('waits for Save before queuing the upload', async () => {
+    const { db, hikeId } = await finishedHike();
+    expect(await getDueItems(db)).toEqual([]); // finished, but not queued yet
+    expect(requestSync).not.toHaveBeenCalled();
+
+    await recorder().save('Ridge loop');
     expect((await getDueItems(db)).map((i) => i.entityId)).toEqual([hikeId]);
     expect(requestSync).toHaveBeenCalled(); // and asks to upload it right away
+  });
+
+  it('keeps no name when the name is left blank', async () => {
+    const { db, hikeId } = await finishedHike();
+    await recorder().save('   ');
+    expect((await getHike(db, hikeId))?.title).toBeNull();
+  });
+
+  it('deletes the hike on Discard and queues nothing', async () => {
+    const { db, hikeId } = await finishedHike();
+    await recorder().discard();
+    expect(recorder()).toMatchObject({ status: 'idle', hikeId: null });
+    expect(await getHike(db, hikeId)).toBeNull();
+    expect(await getDueItems(db)).toEqual([]);
+    expect(useLiveTrackStore.getState()).toMatchObject({ stats: EMPTY_STATS, path: [] });
   });
 });

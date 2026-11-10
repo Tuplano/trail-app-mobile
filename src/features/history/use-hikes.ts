@@ -2,7 +2,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 
 import { getDb } from '@/db/database';
-import { getHike, type Hike, listFinishedHikes } from '@/db/hikes';
+import { getHike, type Hike, type HistoryHike, listFinishedHikes } from '@/db/hikes';
 import { getTrackPath, type PathPoint } from '@/db/track-points';
 import { type SyncSnapshot, useSyncStatusStore } from '@/sync/sync-status-store';
 
@@ -51,8 +51,8 @@ function useLoadWhileFocused(
  * The hike history: every finished hike on this phone, newest first.
  * `hikes` is null until the first read finishes.
  */
-export function useHikeHistory(): { hikes: Hike[] | null; failed: boolean } {
-  const [hikes, setHikes] = useState<Hike[] | null>(null);
+export function useHikeHistory(): { hikes: HistoryHike[] | null; failed: boolean } {
+  const [hikes, setHikes] = useState<HistoryHike[] | null>(null);
   const [failed, setFailed] = useState(false);
 
   useLoadWhileFocused(

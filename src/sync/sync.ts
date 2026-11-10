@@ -2,7 +2,7 @@ import * as Network from 'expo-network';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/database';
-import { resetFailedHikes } from '@/db/hikes';
+import { resetFailedHikes, setSyncStatus } from '@/db/hikes';
 import { enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox';
 
 import { processOutbox, type UploadHandlers } from './process-outbox';
@@ -105,6 +105,19 @@ export async function retryUploads(): Promise<void> {
   await resetFailedHikes(db);
   await enqueueUnsyncedHikes(db);
   await makeAllDue(db);
+  await requestSync();
+}
+
+/**
+ * The hiker tapped Retry on one failed hike in the history: put just that
+ * hike back in the queue and sync now. Like retryUploads, the server may
+ * reject it again, and then it goes back to 'failed'.
+ */
+export async function retryHikeUpload(hikeId: string): Promise<void> {
+  const db = await getDb();
+  await setSyncStatus(db, hikeId, 'pending');
+  // Queues it with no wait (and any other hike whose queuing was missed).
+  await enqueueUnsyncedHikes(db);
   await requestSync();
 }
 

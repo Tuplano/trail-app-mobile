@@ -7,6 +7,7 @@ import {
   listFinishedHikes,
   resetFailedHikes,
   setHikeStatus,
+  setHikeTitle,
   setSyncStatus,
 } from '../hikes';
 import { prepareDatabase } from '../migrations';
@@ -112,13 +113,20 @@ describe('listFinishedHikes', () => {
     const newer = await createHike(db, 5000);
     const unfinished = await createHike(db, 9000);
     for (const hike of [older, newer, unfinished]) await addTrackPoints(db, hike.id, [POINT]);
+    await addTrackPoints(db, older.id, [{ ...POINT, recordedAt: 1600 }]);
     await setHikeStatus(db, older.id, 'finished', 2000);
     await setHikeStatus(db, newer.id, 'finished', 6000);
     await setHikeStatus(db, unfinished.id, 'paused', 9500);
 
     const hikes = await listFinishedHikes(db);
     expect(hikes.map((h) => h.id)).toEqual([newer.id, older.id]);
-    expect(hikes[0]).toMatchObject({ startedAt: 5000, endedAt: 6000, syncStatus: 'pending' });
+    expect(hikes[1].pointCount).toBe(2);
+    expect(hikes[0]).toMatchObject({
+      startedAt: 5000,
+      endedAt: 6000,
+      syncStatus: 'pending',
+      pointCount: 1,
+    });
   });
 
   it('is empty before any hike is finished', async () => {
@@ -133,5 +141,22 @@ describe('listFinishedHikes', () => {
     const empty = await createHike(db, 1000);
     await setHikeStatus(db, empty.id, 'finished', 2000);
     expect(await listFinishedHikes(db)).toEqual([]);
+  });
+});
+
+describe('setHikeTitle', () => {
+  it('names the hike and counts it as an edit', async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 1000);
+    await setHikeTitle(db, id, 'Mt. Pulag', 9000);
+    expect(await getHike(db, id)).toMatchObject({ title: 'Mt. Pulag', clientUpdatedAt: 9000 });
+
+    await setHikeTitle(db, id, null, 9500);
+    expect((await getHike(db, id))?.title).toBeNull();
+  });
+
+  it('fails for an unknown hike', async () => {
+    const db = await freshDb();
+    await expect(setHikeTitle(db, 'nope', 'x')).rejects.toThrow(/not found/);
   });
 });

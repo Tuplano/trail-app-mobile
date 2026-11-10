@@ -1,4 +1,4 @@
-import { formatDuration, formatKm, formatMeters, formatPace } from '../format';
+import { formatClock, formatDuration, formatKm, formatMeters, formatPace } from '../format';
 
 describe('formatDuration', () => {
   it('shows m:ss under an hour and h:mm:ss after', () => {
@@ -25,7 +25,16 @@ describe('formatPace', () => {
   });
 
   it('shows a dash until there is enough to measure', () => {
-    expect(formatPace(60, 50)).toBe('–');
-    expect(formatPace(0, 2000)).toBe('–');
+    expect(formatPace(60, 50)).toBe('–:––');
+    expect(formatPace(0, 2000)).toBe('–:––');
+  });
+});
+
+describe('formatClock', () => {
+  it('always shows hours, like a stopwatch', () => {
+    expect(formatClock(0)).toBe('0:00:00');
+    expect(formatClock(59.9)).toBe('0:00:59');
+    expect(formatClock(4530)).toBe('1:15:30');
+    expect(formatClock(-3)).toBe('0:00:00');
   });
 });

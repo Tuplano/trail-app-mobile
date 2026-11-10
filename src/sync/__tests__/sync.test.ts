@@ -2,11 +2,11 @@ import * as Network from 'expo-network';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/database';
-import { countFailedHikes, resetFailedHikes } from '@/db/hikes';
+import { countFailedHikes, resetFailedHikes, setSyncStatus } from '@/db/hikes';
 import { countWaiting, enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox';
 
 import { processOutbox } from '../process-outbox';
-import { isOnline, requestSync, retryUploads, startSync } from '../sync';
+import { isOnline, requestSync, retryHikeUpload, retryUploads, startSync } from '../sync';
 import { INITIAL_SYNC_SNAPSHOT, useSyncStatusStore } from '../sync-status-store';
 
 jest.mock('expo-network', () => ({
@@ -14,7 +14,11 @@ jest.mock('expo-network', () => ({
   addNetworkStateListener: jest.fn(),
 }));
 jest.mock('@/db/database', () => ({ getDb: jest.fn(async () => ({})) }));
-jest.mock('@/db/hikes', () => ({ countFailedHikes: jest.fn(), resetFailedHikes: jest.fn() }));
+jest.mock('@/db/hikes', () => ({
+  countFailedHikes: jest.fn(),
+  resetFailedHikes: jest.fn(),
+  setSyncStatus: jest.fn(),
+}));
 jest.mock('@/db/outbox', () => ({
   countWaiting: jest.fn(),
   enqueueUnsyncedHikes: jest.fn(),
@@ -136,6 +140,21 @@ describe('retryUploads', () => {
     expect(process).toHaveBeenCalledTimes(1);
     // Reset before queuing, so the reset hikes are queued too.
     expect(jest.mocked(resetFailedHikes).mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(enqueueUnsyncedHikes).mock.invocationCallOrder[0],
+    );
+  });
+});
+
+describe('retryHikeUpload', () => {
+  it('re-queues just that hike and syncs', async () => {
+    await retryHikeUpload('hike-1');
+
+    expect(setSyncStatus).toHaveBeenCalledWith(expect.anything(), 'hike-1', 'pending');
+    expect(resetFailedHikes).not.toHaveBeenCalled();
+    expect(enqueueUnsyncedHikes).toHaveBeenCalled();
+    expect(process).toHaveBeenCalledTimes(1);
+    // Marked pending before queuing, or the queue would skip it as failed.
+    expect(jest.mocked(setSyncStatus).mock.invocationCallOrder[0]).toBeLessThan(
       jest.mocked(enqueueUnsyncedHikes).mock.invocationCallOrder[0],
     );
   });

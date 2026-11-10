@@ -19,6 +19,9 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
       console.warn('Location task error', error.message);
       return;
     }
+    // For the Record screen's "GPS ±4 m" pill, even if the fix isn't saved.
+    const latest = data?.locations?.at(-1);
+    if (latest) useLiveTrackStore.getState().setAccuracy(latest.coords.accuracy ?? null);
     try {
       const { stats, path } = await saveLocations(await getDb(), data?.locations ?? []);
       if (stats && path) useLiveTrackStore.getState().update(stats, path);

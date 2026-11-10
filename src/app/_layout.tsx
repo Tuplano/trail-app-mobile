@@ -11,14 +11,20 @@ import {
 import { QueryClientProvider } from '@tanstack/react-query';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { Appearance, useColorScheme } from 'react-native';
 
 import { queryClient } from '@/api/query-client';
 import { useAuthStore } from '@/features/auth/auth-store';
 // Defines the background location task. It must load at startup, because the
 // OS can wake the app just to deliver GPS fixes, with no screen mounted.
 import '@/tracking/location-task';
+
+// The design is dark, so the app is too, whatever the phone's setting. Native
+// parts (tab bar, status bar, map controls) follow this as well as our colors.
+// The light palette stays in tokens.ts for a theme switch in Settings later.
+Appearance.setColorScheme('dark');
 
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ fade: true, duration: 300 });
@@ -53,6 +59,8 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={colorScheme === 'light' ? DefaultTheme : DarkTheme}>
+        {/* Light clock and icons on the dark theme (dark ones if the theme is ever light). */}
+        <StatusBar style="auto" />
         {/*
           Protected screens only exist while their guard is true. Opening one
           that doesn't exist (or signing in/out) redirects to the first screen

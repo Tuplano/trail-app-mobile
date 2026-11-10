@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import { getDb } from '@/db/database';
-import { createHike, deleteHike, type HikeStatus, setHikeStatus } from '@/db/hikes';
+import { createHike, deleteHike, type HikeStatus, setHikeStatus, setHikeTitle } from '@/db/hikes';
 import { queueFinishedHikes } from '@/sync/queue-hikes';
 import { requestSync } from '@/sync/sync';
 
@@ -14,7 +14,7 @@ import {
 } from './location-task';
 import { findHikeToRestore } from './restore-recording';
 
-/** idle → recording ⇄ paused → finished (→ idle once the hike is saved). */
+/** idle → recording ⇄ paused → finished (→ idle once the hike is saved or discarded). */
 export type RecorderStatus = 'idle' | HikeStatus;
 
 const TRANSITIONS: Record<RecorderStatus, readonly RecorderStatus[]> = {
@@ -46,9 +46,15 @@ type RecorderState = {
   start: () => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
+  /**
+   * Stops recording. The hike stays on the phone, but isn't queued for upload
+   * yet: the hiker names it first, then saves or discards it.
+   */
   finish: () => Promise<void>;
-  /** Back to idle after a finished hike. The hike itself stays saved. */
-  reset: () => void;
+  /** Keeps the finished hike under this name (blank: no name) and queues its upload. */
+  save: (title: string) => Promise<void>;
+  /** Deletes the finished hike and its points. */
+  discard: () => Promise<void>;
 };
 
 /**
@@ -191,15 +197,29 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
         const endedAt = Date.now();
         await setHikeStatus(await getDb(), currentHikeId(), 'finished', endedAt);
         await stopGpsQuietly();
-        await queueFinishedHikes(); // waits in the outbox until sync uploads it
-        void requestSync(); // upload now if online; don't make Finish wait for it
+        // Not queued here: the hike uploads once the hiker taps Save. If the
+        // app closes before that, the hike is still saved as finished, and
+        // the outbox picks it up (unnamed) when the app opens again.
         return { endedAt };
       }),
 
-    reset: () => {
-      const { status } = get();
-      if (!canTransition(status, 'idle')) throw new Error(`Recorder cannot go from ${status} to idle`);
-      set({ status: 'idle', hikeId: null, startedAt: null, endedAt: null, restored: false });
-    },
+    save: (title) =>
+      moveTo('idle', async () => {
+        const name = title.trim();
+        await setHikeTitle(await getDb(), currentHikeId(), name === '' ? null : name);
+        await queueFinishedHikes(); // waits in the outbox until sync uploads it
+        void requestSync(); // upload now if online; don't make Save wait for it
+        useLiveTrackStore.getState().reset();
+        return { hikeId: null, startedAt: null, endedAt: null };
+      }),
+
+    discard: () =>
+      moveTo('idle', async () => {
+        // If the outbox already holds it (the app restarted, or Retry queued
+        // everything), the upload finds no hike and drops it from the queue.
+        await deleteHike(await getDb(), currentHikeId());
+        useLiveTrackStore.getState().reset();
+        return { hikeId: null, startedAt: null, endedAt: null };
+      }),
   };
 });

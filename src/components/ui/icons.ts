@@ -4,3 +4,22 @@
  */
 export type { IconProps } from 'phosphor-react-native';
 export { Boot } from 'phosphor-react-native/src/icons/Boot';
+export { ArrowClockwise } from 'phosphor-react-native/src/icons/ArrowClockwise';
+export { ArrowsClockwise } from 'phosphor-react-native/src/icons/ArrowsClockwise';
+export { CheckCircle } from 'phosphor-react-native/src/icons/CheckCircle';
+export { Clock } from 'phosphor-react-native/src/icons/Clock';
+export { CloudSlash } from 'phosphor-react-native/src/icons/CloudSlash';
+export { DeviceMobile } from 'phosphor-react-native/src/icons/DeviceMobile';
+// Exported as PathIcon (a plain "Path" would clash with SVG's Path).
+export { PathIcon as Path } from 'phosphor-react-native/src/icons/Path';
+export { Timer } from 'phosphor-react-native/src/icons/Timer';
+export { Tray } from 'phosphor-react-native/src/icons/Tray';
+export { TrendUp } from 'phosphor-react-native/src/icons/TrendUp';
+export { Warning } from 'phosphor-react-native/src/icons/Warning';
+export { ChartBarIcon as ChartBar } from 'phosphor-react-native/src/icons/ChartBar';
+export { CrosshairIcon as Crosshair } from 'phosphor-react-native/src/icons/Crosshair';
+export { MapTrifoldIcon as MapTrifold } from 'phosphor-react-native/src/icons/MapTrifold';
+export { PauseIcon as Pause } from 'phosphor-react-native/src/icons/Pause';
+export { PlayIcon as Play } from 'phosphor-react-native/src/icons/Play';
+export { StopIcon as Stop } from 'phosphor-react-native/src/icons/Stop';
+export { UsersThreeIcon as UsersThree } from 'phosphor-react-native/src/icons/UsersThree';
