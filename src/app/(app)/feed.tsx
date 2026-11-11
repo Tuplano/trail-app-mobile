@@ -18,9 +18,9 @@ import type { UnsentPost } from '@/db/posts';
 import { useAuthStore } from '@/features/auth/auth-store';
 import { CommentsSheet, type CommentsFor } from '@/features/feed/comments-sheet';
 import { FEED_QUERY_KEY, useFeed } from '@/features/feed/feed-api';
-import { feedPosts, type FeedPost } from '@/features/feed/feed-cache';
+import { feedPosts, type FeedPost, unsentNotInFeed } from '@/features/feed/feed-cache';
 import { FeedPostCard } from '@/features/feed/feed-post-card';
-import { feedStats } from '@/features/feed/feed-format';
+import { feedStats, unsentPostNote } from '@/features/feed/feed-format';
 import { type FeedTab, FeedTabs } from '@/features/feed/feed-tabs';
 import { PostCard } from '@/features/feed/post-card';
 import { useUnsentPosts } from '@/features/feed/use-unsent-posts';
@@ -46,6 +46,7 @@ export default function FeedScreen() {
   const unsent = useUnsentPosts();
   const me = useAuthStore((s) => s.user);
   const online = useSyncStatusStore((s) => s.online) !== false;
+  const unmetered = useSyncStatusStore((s) => s.unmetered);
   const photosOnWifiOnly = useSettingsStore((s) => s.settings.photosOnWifiOnly);
 
   // When an upload run ends, a post may have just reached the server: show it.
@@ -59,27 +60,23 @@ export default function FeedScreen() {
     [],
   );
 
+  const posts = feedPosts(feed.data);
+  // A queued post the server already has (its reply got lost) shows once, from the server.
+  const queued = unsentNotInFeed(unsent, posts.map((post) => post.id));
   const rows: Row[] = [
-    ...unsent.map((post) => ({ kind: 'unsent' as const, post })),
-    ...feedPosts(feed.data).map((post) => ({ kind: 'post' as const, post })),
+    ...queued.map((post) => ({ kind: 'unsent' as const, post })),
+    ...posts.map((post) => ({ kind: 'post' as const, post })),
   ];
-
-  /** Why your post isn't up yet, where the design says "Waiting for signal". */
-  const waitingFor = (post: UnsentPost) => {
-    if (post.syncStatus === 'failed') return "The server didn't accept it";
-    if (!online) return 'Waiting for signal';
-    if (photosOnWifiOnly && post.photoUris.length > 0) return 'Waiting for Wi-Fi';
-    return 'Uploading…';
-  };
 
   const renderRow = ({ item }: { item: Row }) => {
     if (item.kind === 'unsent') {
       const { post } = item;
+      const note = unsentPostNote({ ...post, online, unmetered, photosOnWifiOnly });
       return (
         <PostCard
           postId={post.id}
           author={{ name: me?.displayName ?? 'You', avatarUrl: me?.avatarUrl ?? null }}
-          subtitle={`${hikeTitle(post.hike)} · ${waitingFor(post)}`}
+          subtitle={`${hikeTitle(post.hike)} · ${note}`}
           status={post.syncStatus === 'failed' ? 'failed' : 'queued'}
           photos={post.photoUris.map((uri) => ({ key: uri, uri }))}
           stats={feedStats(post.hike)}

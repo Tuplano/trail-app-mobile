@@ -96,8 +96,9 @@ export function requestSync(): Promise<void> {
     try {
       do {
         runAgain = false;
-        const online = isOnline(await Network.getNetworkStateAsync());
-        showStatus({ online });
+        const state = await Network.getNetworkStateAsync();
+        const online = isOnline(state);
+        showStatus({ online, unmetered: online && isUnmetered(state) });
         if (!online) return;
         await refreshStatus(); // show what's about to upload
         showStatus({ syncing: true });
@@ -168,7 +169,7 @@ export function startSync(): () => void {
   const network = Network.addNetworkStateListener((state) => {
     const online = isOnline(state);
     const unmetered = online && isUnmetered(state);
-    showStatus({ online });
+    showStatus({ online, unmetered });
     if (online && wasOnline === false)
       void syncAfterReconnect(); // just came back online
     else if (online && wasOnline === null)

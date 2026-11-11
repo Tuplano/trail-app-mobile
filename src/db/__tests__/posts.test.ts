@@ -1,6 +1,6 @@
 import { createHike, deleteHike, getHike } from '../hikes';
 import { prepareDatabase } from '../migrations';
-import { getDueItems } from '../outbox';
+import { getDueItems, markFailed } from '../outbox';
 import {
   clearPhotoUploadKeys,
   createPost,
@@ -167,6 +167,24 @@ describe('listUnsentPosts', () => {
       caption: 'First',
       hike: { title: null, startedAt: 1000, distanceM: 0 },
       photoUris: ['file:///app/post-photos/p1.jpg', 'file:///app/post-photos/p2.jpg'],
+      photosToUpload: 2,
+      failedTries: 0,
     });
+  });
+
+  it('counts photos still to upload and failed tries', async () => {
+    const { db, hikeId } = await dbWithHike();
+    const id = await createPost(
+      db,
+      { hikeId, caption: null, visibility: 'public', photos: [photo('p1'), photo('p2')] },
+      5000,
+    );
+    await setPhotoUploadKey(db, 'p1', 'uploads/me/1');
+    const [item] = await getDueItems(db, 5000);
+    await markFailed(db, item.id, 'Network request failed', 65_000);
+
+    expect(await listUnsentPosts(db)).toEqual([
+      expect.objectContaining({ id, photosToUpload: 1, failedTries: 1 }),
+    ]);
   });
 });

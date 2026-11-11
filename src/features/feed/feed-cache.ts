@@ -52,3 +52,17 @@ export function feedPosts(feed: { pages: FeedPage[] } | undefined): FeedPost[] {
     .flatMap((page) => page.items)
     .filter((post) => !seen.has(post.id) && seen.add(post.id));
 }
+
+/**
+ * Your queued posts that the feed doesn't have yet. A post can reach the
+ * server while the phone misses the reply (the signal drops): until the next
+ * retry it's still queued on the phone, but the feed already has it. Showing
+ * both would put it in the feed twice.
+ */
+export function unsentNotInFeed<T extends { id: string }>(
+  unsent: readonly T[],
+  feedIds: Iterable<string>,
+): T[] {
+  const inFeed = new Set(feedIds);
+  return unsent.filter((post) => !inFeed.has(post.id));
+}

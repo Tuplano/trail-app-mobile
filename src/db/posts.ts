@@ -161,6 +161,10 @@ export type UnsentPost = {
   };
   /** The app's copies of its photos, in order. */
   photoUris: string[];
+  /** Photos not in storage yet: while any are left, Wi-Fi only can hold the post back. */
+  photosToUpload: number;
+  /** How many tries failed so far (lost signal, server trouble); 0 before the first. */
+  failedTries: number;
 };
 
 /** Posts not on the server yet (waiting, uploading or refused), newest first. */
@@ -172,15 +176,22 @@ export async function listUnsentPosts(db: Db): Promise<UnsentPost[]> {
       distance_m: number;
       elevation_gain_m: number;
       moving_time_s: number;
+      failed_tries: number | null;
     }
   >(
-    `SELECT p.*, h.title, h.started_at, h.distance_m, h.elevation_gain_m, h.moving_time_s
+    `SELECT p.*, h.title, h.started_at, h.distance_m, h.elevation_gain_m, h.moving_time_s,
+       o.attempts AS failed_tries
      FROM posts p JOIN hikes h ON h.id = p.hike_id
+     LEFT JOIN outbox o ON o.kind = 'post' AND o.entity_id = p.id
      WHERE p.sync_status != 'synced'
      ORDER BY p.created_at DESC`,
   );
-  const photos = await db.getAllAsync<{ post_id: string; file_uri: string }>(
-    `SELECT post_id, file_uri FROM post_photos
+  const photos = await db.getAllAsync<{
+    post_id: string;
+    file_uri: string;
+    upload_key: string | null;
+  }>(
+    `SELECT post_id, file_uri, upload_key FROM post_photos
      WHERE post_id IN (SELECT id FROM posts WHERE sync_status != 'synced')
      ORDER BY position`,
   );
@@ -197,5 +208,7 @@ export async function listUnsentPosts(db: Db): Promise<UnsentPost[]> {
       movingTimeS: row.moving_time_s,
     },
     photoUris: photos.filter((p) => p.post_id === row.id).map((p) => p.file_uri),
+    photosToUpload: photos.filter((p) => p.post_id === row.id && !p.upload_key).length,
+    failedTries: row.failed_tries ?? 0,
   }));
 }

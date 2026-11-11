@@ -1,4 +1,4 @@
-import { feedStats, formatTimeAgo } from '../feed-format';
+import { feedStats, formatTimeAgo, unsentPostNote } from '../feed-format';
 
 /** Epoch ms for a local date and time, so tests pass in any time zone. */
 const at = (year: number, month: number, day: number, hour = 9, minute = 0) =>
@@ -40,5 +40,39 @@ describe('feedStats', () => {
       climb: '–',
       time: '–',
     });
+  });
+});
+
+describe('unsentPostNote', () => {
+  const queued = {
+    syncStatus: 'pending' as const,
+    photosToUpload: 2,
+    failedTries: 0,
+    online: true,
+    unmetered: true,
+    photosOnWifiOnly: true,
+  };
+
+  it('waits for signal offline, as in the design', () => {
+    expect(unsentPostNote({ ...queued, online: false })).toBe('Waiting for signal');
+  });
+
+  it('waits for Wi-Fi only when off Wi-Fi with photos still to upload', () => {
+    expect(unsentPostNote({ ...queued, unmetered: false })).toBe('Waiting for Wi-Fi');
+    expect(unsentPostNote({ ...queued, unmetered: false, photosToUpload: 0 })).toBe(
+      'Queued for upload',
+    );
+    expect(unsentPostNote({ ...queued, unmetered: false, photosOnWifiOnly: false })).toBe(
+      'Queued for upload',
+    );
+  });
+
+  it("doesn't blame Wi-Fi when an upload on Wi-Fi failed", () => {
+    expect(unsentPostNote({ ...queued, failedTries: 2 })).toBe("Couldn't upload · trying again");
+  });
+
+  it('shows uploading, and a refused post', () => {
+    expect(unsentPostNote({ ...queued, syncStatus: 'syncing' })).toBe('Uploading…');
+    expect(unsentPostNote({ ...queued, syncStatus: 'failed' })).toBe("The server didn't accept it");
   });
 });

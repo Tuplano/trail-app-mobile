@@ -19,6 +19,8 @@ export type SyncSnapshot = {
   syncing: boolean;
   /** Whether the phone has working internet; null until first checked. */
   online: boolean | null;
+  /** On Wi-Fi or a cable (photos may upload with Wi-Fi only on); null until first checked. */
+  unmetered: boolean | null;
   /** The hike uploading right now and how far it has got; null between uploads. */
   uploadProgress: UploadProgress | null;
 };
@@ -33,6 +35,7 @@ export const INITIAL_SYNC_SNAPSHOT: SyncSnapshot = {
   failed: 0,
   syncing: false,
   online: null,
+  unmetered: null,
   uploadProgress: null,
 };
 

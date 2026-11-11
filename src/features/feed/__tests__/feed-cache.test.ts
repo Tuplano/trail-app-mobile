@@ -2,6 +2,7 @@ import {
   feedPosts,
   type FeedPost,
   hasProcessingPhotos,
+  unsentNotInFeed,
   withLike,
   withOneMoreComment,
 } from '../feed-cache';
@@ -83,5 +84,17 @@ describe('hasProcessingPhotos', () => {
   it('is false once every photo is ready or failed, or with none', () => {
     expect(hasProcessingPhotos(feed([withPhotos('ready', 'failed'), withPhotos()]))).toBe(false);
     expect(hasProcessingPhotos(undefined)).toBe(false);
+  });
+});
+
+describe('unsentNotInFeed', () => {
+  it('drops a queued post the feed already has, keeping the rest in order', () => {
+    const unsent = [{ id: 'q3' }, { id: 'q2' }, { id: 'q1' }];
+    expect(unsentNotInFeed(unsent, ['q2', 'other'])).toEqual([{ id: 'q3' }, { id: 'q1' }]);
+  });
+
+  it('keeps everything while the feed has none of them', () => {
+    const unsent = [{ id: 'q1' }];
+    expect(unsentNotInFeed(unsent, [])).toEqual(unsent);
   });
 });

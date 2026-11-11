@@ -47,3 +47,28 @@ export function feedStats(hike: {
     time: hike.movingTimeS == null ? NO_VALUE : formatHikeDuration(hike.movingTimeS),
   };
 }
+
+/**
+ * Why your post isn't up yet, after the hike's name on its queued card
+ * ("Eagle Point · Waiting for signal", as in the design). Uses the real
+ * connection: "Waiting for Wi-Fi" only while off Wi-Fi with photos still to
+ * upload, so a post that fails on Wi-Fi doesn't blame the connection.
+ */
+export function unsentPostNote(post: {
+  syncStatus: 'pending' | 'syncing' | 'failed';
+  photosToUpload: number;
+  failedTries: number;
+  online: boolean;
+  /** On Wi-Fi; null when not known yet. */
+  unmetered: boolean | null;
+  photosOnWifiOnly: boolean;
+}): string {
+  if (post.syncStatus === 'failed') return "The server didn't accept it";
+  if (!post.online) return 'Waiting for signal';
+  if (post.syncStatus === 'syncing') return 'Uploading…';
+  if (post.photosOnWifiOnly && post.photosToUpload > 0 && post.unmetered === false) {
+    return 'Waiting for Wi-Fi';
+  }
+  if (post.failedTries > 0) return "Couldn't upload · trying again";
+  return 'Queued for upload';
+}
