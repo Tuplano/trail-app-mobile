@@ -40,6 +40,8 @@ export { PaperPlaneRightIcon as PaperPlaneRight } from 'phosphor-react-native/sr
 export { MagnifyingGlassIcon as MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
 export { XCircleIcon as XCircle } from 'phosphor-react-native/src/icons/XCircle';
 export { BellIcon as Bell } from 'phosphor-react-native/src/icons/Bell';
+export { CaretRightIcon as CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
+export { DownloadSimpleIcon as DownloadSimple } from 'phosphor-react-native/src/icons/DownloadSimple';
 // Badge icons: the API names a badge's icon, see features/achievements/badge-icon.ts.
 export { FootprintsIcon as Footprints } from 'phosphor-react-native/src/icons/Footprints';
 export { CompassIcon as Compass } from 'phosphor-react-native/src/icons/Compass';

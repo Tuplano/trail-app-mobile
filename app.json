@@ -48,6 +48,7 @@
         }
       ],
       "@maplibre/maplibre-react-native",
+      "./plugins/with-map-requests",
       [
         "expo-notifications",
         {

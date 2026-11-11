@@ -20,10 +20,12 @@ import { levelProgress, profileStats } from '@/features/achievements/achievement
 import { BadgeGrid } from '@/features/achievements/badge-grid';
 import { LevelCard } from '@/features/achievements/level-card';
 import { useProfile } from '@/features/people/people-api';
+import { useOfflineAreasStore } from '@/features/offline-maps/offline-areas-store';
 import { followerLabel } from '@/features/people/people-cache';
 import { ProfileCounts } from '@/features/people/profile-counts';
 import { ProfileHeader } from '@/features/people/profile-header';
 import { useRefreshMe } from '@/features/profile/profile-api';
+import { ProfileLinks } from '@/features/profile/profile-links';
 import { useColors } from '@/theme/use-colors';
 
 export default function ProfileScreen() {
@@ -41,6 +43,11 @@ export default function ProfileScreen() {
     useCallback(() => {
       void queryClient.refetchQueries({ queryKey: MY_STATS_KEY, stale: true });
       void queryClient.refetchQueries({ queryKey: MY_BADGES_KEY, stale: true });
+      // For the Offline maps row's "2 regions".
+      useOfflineAreasStore
+        .getState()
+        .load()
+        .catch((e: unknown) => console.warn('Could not read offline maps', e));
     }, []),
   );
 
@@ -73,6 +80,7 @@ export default function ProfileScreen() {
         />
       ) : null}
       {badges.data && badges.data.length > 0 ? <BadgeGrid badges={badges.data} /> : null}
+      <ProfileLinks />
       {refresh.error ? (
         <Text variant="small" color="muted2">
           Showing your saved profile. {errorMessage(refresh.error)}
