@@ -1,23 +1,15 @@
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
-
-import { useSyncStatusStore } from '@/sync/sync-status-store';
 
 import { useMyBadges } from './achievements-api';
 import { BadgeBanner } from './badge-banner';
 import { checkBadgeNews, markBadgeNewsRead } from './badge-news-check';
 import { useBadgeNewsStore } from './badge-news-store';
 import { BadgeUnlockedModal } from './badge-unlocked-modal';
+import { watchForBadges } from './badge-watch';
 
 /** How long the banner stays before giving way to the next one, as in the design. */
 const BANNER_MS = 7000;
-
-/**
- * After an upload the server needs a moment to work out badges (a few
- * seconds, longer when busy), so look a few times rather than once.
- */
-const AFTER_UPLOAD_MS = [4000, 12000, 30000];
 
 function check() {
   checkBadgeNews().catch(() => {}); // offline: the next check will find it
@@ -38,19 +30,9 @@ export function BadgeUnlocks() {
   const find = (code: string) => badges.data?.find((badge) => badge.code === code);
 
   useEffect(() => {
-    check();
-    const appState = AppState.addEventListener('change', (state) => {
-      if (state === 'active') check();
-    });
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const unsubscribe = useSyncStatusStore.subscribe((state, previous) => {
-      if (state.lastUploadAt === previous.lastUploadAt) return;
-      for (const ms of AFTER_UPLOAD_MS) timers.push(setTimeout(check, ms));
-    });
+    const stop = watchForBadges(check);
     return () => {
-      appState.remove();
-      unsubscribe();
-      for (const timer of timers) clearTimeout(timer);
+      stop();
       // Unmounted on sign out: the next person starts with nothing queued.
       useBadgeNewsStore.getState().reset();
     };
