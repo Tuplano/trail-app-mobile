@@ -23,6 +23,7 @@ export default function ProfileLayout() {
       <Stack.Screen name="profile" options={{ headerShown: false }} />
       {/* Only the back button, as in the design: the screen shows its title itself. */}
       <Stack.Screen name="settings" options={{ title: '', headerBackTitle: 'Profile' }} />
+      <Stack.Screen name="edit-profile" options={{ title: '', headerBackTitle: 'Profile' }} />
     </Stack>
   );
 }
