@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, type TextInputInstance, View } from 'react-native';
@@ -13,9 +12,12 @@ import { TextField } from '@/components/ui/text-field';
 import { useAuthStore } from '@/features/auth/auth-store';
 import type { User } from '@/features/auth/session-storage';
 import { describeAuthError, type FieldErrors } from '@/features/auth/validation';
+import { useProfile } from '@/features/people/people-api';
+import { followerLabel } from '@/features/people/people-cache';
+import { ProfileCounts } from '@/features/people/profile-counts';
+import { ProfileHeader } from '@/features/people/profile-header';
 import { useRefreshMe, useUpdateMe } from '@/features/profile/profile-api';
 import {
-  initials,
   type ProfileChanges,
   profileChanges,
   validateProfile,
@@ -27,13 +29,23 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const refresh = useRefreshMe();
   const update = useUpdateMe();
+  // Your counts (posts, followers, following) come from your public profile.
+  const counts = useProfile(user?.id);
 
   // This screen only exists while signed in, and signing in always saves the user.
   if (!user) return null;
 
   return (
     <Screen edges={['top']} contentStyle={styles.page}>
-      <ProfileHeader user={user} />
+      <MyProfileHeader user={user} followers={counts.data?.followerCount} />
+      {counts.data ? (
+        <ProfileCounts
+          userId={user.id}
+          posts={counts.data.postCount}
+          followers={counts.data.followerCount}
+          following={counts.data.followingCount}
+        />
+      ) : null}
       {refresh.error ? (
         <Text variant="small" color="muted2">
           Showing your saved profile. {errorMessage(refresh.error)}
@@ -53,7 +65,12 @@ export default function ProfileScreen() {
   );
 }
 
-function ProfileHeader({ user }: { user: User }) {
+/**
+ * Your header, as in the design: picture, name, "@maya · 128 followers" and
+ * the gear (Settings; sign out lives there). Your email and join date sit
+ * under it. The follower count needs signal; offline it shows the handle only.
+ */
+function MyProfileHeader({ user, followers }: { user: User; followers: number | undefined }) {
   const colors = useColors();
   const joined = new Date(user.createdAt).toLocaleDateString(undefined, {
     month: 'long',
@@ -61,40 +78,30 @@ function ProfileHeader({ user }: { user: User }) {
   });
 
   return (
-    <View style={styles.header}>
-      <View
-        style={[styles.avatar, { backgroundColor: colors.tint, borderColor: colors.accentDim }]}>
-        {user.avatarUrl ? (
-          <Image
-            source={user.avatarUrl}
-            style={styles.avatarImage}
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <Text variant="heading" color="accentText">
-            {initials(user.displayName)}
-          </Text>
-        )}
-      </View>
-      <View style={styles.headerText}>
-        <Text variant="title">{user.displayName}</Text>
-        <Text color="muted">@{user.username}</Text>
-        <Text variant="small" color="muted2">
-          {user.email} · Joined {joined}
-        </Text>
-      </View>
-      {/* Settings, as in the design: a round button beside the name. Sign out lives there. */}
-      <Pressable
-        onPress={() => router.push('/settings')}
-        accessibilityRole="button"
-        accessibilityLabel="Settings"
-        style={({ pressed }) => [
-          styles.settings,
-          { borderColor: colors.line, backgroundColor: pressed ? colors.hover : 'transparent' },
-        ]}>
-        <GearSix size={20} color={colors.text} />
-      </Pressable>
-    </View>
+    <ProfileHeader
+      name={user.displayName}
+      avatarUrl={user.avatarUrl}
+      subtitle={
+        followers === undefined
+          ? `@${user.username}`
+          : `@${user.username} · ${followerLabel(followers)}`
+      }
+      right={
+        <Pressable
+          onPress={() => router.push('/settings')}
+          accessibilityRole="button"
+          accessibilityLabel="Settings"
+          style={({ pressed }) => [
+            styles.settings,
+            { borderColor: colors.line, backgroundColor: pressed ? colors.hover : 'transparent' },
+          ]}>
+          <GearSix size={20} color={colors.text} />
+        </Pressable>
+      }>
+      <Text variant="label" color="muted3" numberOfLines={1}>
+        {user.email} · Joined {joined}
+      </Text>
+    </ProfileHeader>
   );
 }
 
@@ -179,28 +186,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 32,
     gap: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  headerText: {
-    flex: 1,
-    gap: 2,
   },
   form: {
     gap: 14,

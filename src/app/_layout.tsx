@@ -17,6 +17,7 @@ import { Appearance, useColorScheme } from 'react-native';
 
 import { queryClient } from '@/api/query-client';
 import { useAuthStore } from '@/features/auth/auth-store';
+import { useColors } from '@/theme/use-colors';
 // Defines the background location task. It must load at startup, because the
 // OS can wake the app just to deliver GPS fixes, with no screen mounted.
 import '@/tracking/location-task';
@@ -32,6 +33,7 @@ SplashScreen.setOptions({ fade: true, duration: 300 });
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const authStatus = useAuthStore((s) => s.status);
+  const colors = useColors();
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -55,6 +57,16 @@ export default function RootLayout() {
   if (!ready) return null;
 
   const signedIn = authStatus === 'signedIn';
+  // A back button on the app's background, like History's and Profile's stacks.
+  const peopleScreen = {
+    headerShown: true,
+    title: '',
+    animation: 'default',
+    headerStyle: { backgroundColor: colors.bg },
+    headerTintColor: colors.accentHi,
+    headerShadowVisible: false,
+    contentStyle: { backgroundColor: colors.bg },
+  } as const;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -71,6 +83,15 @@ export default function RootLayout() {
             <Stack.Screen name="(app)" />
             {/* Over the tabs (the design hides them here), sliding up like a sheet. */}
             <Stack.Screen name="new-post/[hikeId]" options={{ animation: 'slide_from_bottom' }} />
+            {/*
+              People: someone's profile, follow lists and search. Not in the
+              design; they sit over the tabs so any tab can open them, with
+              only a back button (each screen shows its own title).
+            */}
+            <Stack.Screen name="users/[id]/index" options={peopleScreen} />
+            <Stack.Screen name="users/[id]/followers" options={peopleScreen} />
+            <Stack.Screen name="users/[id]/following" options={peopleScreen} />
+            <Stack.Screen name="search" options={peopleScreen} />
           </Stack.Protected>
           <Stack.Protected guard={!signedIn}>
             <Stack.Screen name="sign-in" />

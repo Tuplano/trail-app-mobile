@@ -15,10 +15,13 @@ export function Avatar({
   name,
   url,
   size = 38,
+  ring = false,
 }: {
   name: string;
   url: string | null;
   size?: number;
+  /** The accent ring of the design's big profile picture. */
+  ring?: boolean;
 }) {
   const colors = useColors();
   return (
@@ -26,6 +29,7 @@ export function Avatar({
       style={[
         styles.circle,
         { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.tint },
+        ring && { borderWidth: 1.5, borderColor: colors.accent },
       ]}>
       {url ? (
         <Image source={{ uri: url }} style={styles.image} accessibilityIgnoresInvertColors />

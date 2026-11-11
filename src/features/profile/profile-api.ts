@@ -44,6 +44,10 @@ export function useUpdateMe() {
       if (!data) throw toApiError(error, response);
       return keepUser(data);
     },
-    onSuccess: (user) => queryClient.setQueryData(ME_QUERY_KEY, user),
+    onSuccess: (user) => {
+      queryClient.setQueryData(ME_QUERY_KEY, user);
+      // Your public profile (with the counts) shows the new name too.
+      void queryClient.invalidateQueries({ queryKey: ['profile', user.id] });
+    },
   });
 }

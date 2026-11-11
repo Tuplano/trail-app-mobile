@@ -37,3 +37,5 @@ export { GearSixIcon as GearSix } from 'phosphor-react-native/src/icons/GearSix'
 export { HeartIcon as Heart } from 'phosphor-react-native/src/icons/Heart';
 export { ChatCircleIcon as ChatCircle } from 'phosphor-react-native/src/icons/ChatCircle';
 export { PaperPlaneRightIcon as PaperPlaneRight } from 'phosphor-react-native/src/icons/PaperPlaneRight';
+export { MagnifyingGlassIcon as MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
+export { XCircleIcon as XCircle } from 'phosphor-react-native/src/icons/XCircle';

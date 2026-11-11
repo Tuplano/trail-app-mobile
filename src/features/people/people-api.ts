@@ -148,7 +148,14 @@ export function useToggleFollow() {
       for (const [key, data] of context?.lists ?? []) queryClient.setQueryData(key, data);
     },
     onSettled: async (_data, _error, { userId }) => {
+      // Follow lists not on screen are out of date (someone joined or left
+      // your Following, their Followers): drop them, so opening one loads it
+      // fresh instead of showing the old copy. The list on screen keeps the
+      // person with a flipped button, so a wrong tap can be undone, and
+      // reloads the next time it opens.
+      queryClient.removeQueries({ queryKey: ['follows'], type: 'inactive' });
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['follows'], refetchType: 'none' }),
         queryClient.invalidateQueries({ queryKey: profileKey(userId) }),
         // Your own following count changed too.
         queryClient.invalidateQueries({ queryKey: ['profile'] }),

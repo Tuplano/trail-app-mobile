@@ -1,24 +1,32 @@
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { queryClient } from '@/api/query-client';
-import { Button } from '@/components/ui/button';
-import { UsersThree } from '@/components/ui/icons';
+import { MagnifyingGlass } from '@/components/ui/icons';
+import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
 import type { UnsentPost } from '@/db/posts';
 import { useAuthStore } from '@/features/auth/auth-store';
 import { CommentsSheet, type CommentsFor } from '@/features/feed/comments-sheet';
-import { FEED_QUERY_KEY, useFeed, useToggleLike } from '@/features/feed/feed-api';
+import { FEED_QUERY_KEY, useFeed } from '@/features/feed/feed-api';
 import { feedPosts, type FeedPost } from '@/features/feed/feed-cache';
-import { feedStats, formatTimeAgo } from '@/features/feed/feed-format';
+import { FeedPostCard } from '@/features/feed/feed-post-card';
+import { feedStats } from '@/features/feed/feed-format';
 import { type FeedTab, FeedTabs } from '@/features/feed/feed-tabs';
 import { PostCard } from '@/features/feed/post-card';
 import { useUnsentPosts } from '@/features/feed/use-unsent-posts';
 import { hikeTitle } from '@/features/history/hike-summary';
 import { useSettingsStore } from '@/features/settings/settings-store';
 import { useSyncStatusStore } from '@/sync/sync-status-store';
-import { radius } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
 
 type Row = { kind: 'unsent'; post: UnsentPost } | { kind: 'post'; post: FeedPost };
@@ -27,14 +35,14 @@ type Row = { kind: 'unsent'; post: UnsentPost } | { kind: 'post'; post: FeedPost
  * The feed, as in the design: your posts and those of people you follow,
  * newest first, loading more near the bottom. Your posts not uploaded yet
  * sit on top, marked "Queued". Like with the heart; the speech bubble opens
- * the comments. Nearby comes later (the API has no nearby feed yet).
+ * the comments; a name opens that hiker's profile, and the magnifier finds
+ * people to follow. Nearby comes later (the API has no nearby feed yet).
  */
 export default function FeedScreen() {
   const colors = useColors();
   const [tab, setTab] = useState<FeedTab>('following');
   const [commentsFor, setCommentsFor] = useState<CommentsFor | null>(null);
   const feed = useFeed();
-  const like = useToggleLike();
   const unsent = useUnsentPosts();
   const me = useAuthStore((s) => s.user);
   const online = useSyncStatusStore((s) => s.online) !== false;
@@ -51,8 +59,6 @@ export default function FeedScreen() {
     [],
   );
 
-  // "3h ago" counts from when the feed was loaded, so it doesn't change on every render.
-  const loadedAt = feed.dataUpdatedAt;
   const rows: Row[] = [
     ...unsent.map((post) => ({ kind: 'unsent' as const, post })),
     ...feedPosts(feed.data).map((post) => ({ kind: 'post' as const, post })),
@@ -81,36 +87,11 @@ export default function FeedScreen() {
         />
       );
     }
-    const { post } = item;
-    const title = hikeTitle({ title: post.hike.title, startedAt: Date.parse(post.hike.startedAt) });
     return (
-      <PostCard
-        postId={post.id}
-        author={{ name: post.author.displayName, avatarUrl: post.author.avatarUrl }}
-        subtitle={`${title} · ${formatTimeAgo(Date.parse(post.createdAt), loadedAt)}`}
-        photos={[...post.photos]
-          .sort((a, b) => a.position - b.position)
-          .map((photo) => ({
-            key: photo.id,
-            uri: photo.status === 'ready' ? (photo.fullUrl ?? photo.thumbUrl) : null,
-          }))}
-        stats={feedStats(post.hike)}
-        caption={post.caption}
-        likes={{
-          count: post.likeCount,
-          liked: post.likedByMe,
-          onPress: () => like.mutate({ postId: post.id, like: !post.likedByMe }),
-        }}
-        comments={{
-          count: post.commentCount,
-          onPress: () =>
-            setCommentsFor({
-              postId: post.id,
-              count: post.commentCount,
-              author: post.author.displayName,
-              hike: title,
-            }),
-        }}
+      <FeedPostCard
+        post={item.post}
+        loadedAt={feed.dataUpdatedAt}
+        onOpenComments={setCommentsFor}
       />
     );
   };
@@ -120,7 +101,20 @@ export default function FeedScreen() {
       <Text variant="title" style={styles.title}>
         Feed
       </Text>
-      <FeedTabs value={tab} onChange={setTab} />
+      <View style={styles.headerRight}>
+        <FeedTabs value={tab} onChange={setTab} />
+        {/* Not in the design, which has no way to find people: a round button like Profile's gear. */}
+        <Pressable
+          onPress={() => router.push('/search')}
+          accessibilityRole="button"
+          accessibilityLabel="Find people"
+          style={({ pressed }) => [
+            styles.searchButton,
+            { borderColor: colors.line, backgroundColor: pressed ? colors.hover : 'transparent' },
+          ]}>
+          <MagnifyingGlass size={19} color={colors.text} />
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -184,31 +178,6 @@ export default function FeedScreen() {
   );
 }
 
-/** A message card in the list's place: loading failed, nothing yet, or coming soon. */
-function Notice({
-  title,
-  body,
-  action,
-}: {
-  title: string;
-  body: string;
-  action?: { label: string; onPress: () => void };
-}) {
-  const colors = useColors();
-  return (
-    <View style={[styles.notice, { backgroundColor: colors.surface, borderColor: colors.line2 }]}>
-      <View style={[styles.noticeIcon, { backgroundColor: colors.tint }]}>
-        <UsersThree size={26} color={colors.accentHi} />
-      </View>
-      <Text variant="subheading">{title}</Text>
-      <Text color="muted" style={styles.noticeBody}>
-        {body}
-      </Text>
-      {action && <Button label={action.label} variant="secondary" onPress={action.onPress} />}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
@@ -225,32 +194,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 4,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 30,
     lineHeight: 36,
   },
   spinner: {
     marginVertical: 24,
-  },
-  notice: {
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 16,
-    marginHorizontal: 22,
-    paddingVertical: 32,
-    paddingHorizontal: 20,
-    borderRadius: radius.card,
-    borderWidth: 1,
-  },
-  noticeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  noticeBody: {
-    textAlign: 'center',
   },
 });
