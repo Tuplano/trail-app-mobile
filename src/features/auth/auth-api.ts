@@ -5,6 +5,7 @@ import { api } from '@/api/client';
 import { toApiError } from '@/api/errors';
 import { queryClient } from '@/api/query-client';
 import type { components } from '@/api/schema';
+import { forgetPushToken } from '@/features/notifications/push-token';
 
 import { useAuthStore } from './auth-store';
 
@@ -40,10 +41,14 @@ export function useSignUp() {
 
 /**
  * Signs out on this device straight away, then tells the API to revoke the
- * refresh token. If that call fails (offline), the token simply expires.
+ * refresh token and stop pushes to this phone. If those calls fail
+ * (offline), the token simply expires.
  */
 export async function signOut(): Promise<void> {
   const { session, clear } = useAuthStore.getState();
+  forgetPushToken(session?.accessToken).catch((error: unknown) =>
+    console.warn('Could not stop push notifications', error),
+  );
   await clear();
   queryClient.clear();
   if (session) {

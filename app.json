@@ -49,6 +49,12 @@
       ],
       "@maplibre/maplibre-react-native",
       [
+        "expo-notifications",
+        {
+          "color": "#9A8174"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Trail lets you add photos from your library to a post about your hike.",

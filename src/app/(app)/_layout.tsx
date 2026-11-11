@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 
 import AppTabs from '@/components/app-tabs';
+import { usePushNotifications } from '@/features/notifications/use-push-notifications';
 import { useSettingsStore } from '@/features/settings/settings-store';
 import { queueFinishedHikes } from '@/sync/queue-hikes';
 import { startSync } from '@/sync/sync';
@@ -9,10 +10,12 @@ import { useRecorderStore } from '@/tracking/recorder-store';
 
 /**
  * The signed-in part of the app: the bottom tabs (see AppTabs), plus jobs on
- * launch: reading the settings, picking an unfinished hike back up, and
- * starting the upload sync.
+ * launch: reading the settings, picking an unfinished hike back up, starting
+ * the upload sync, and push notifications (see usePushNotifications).
  */
 export default function AppLayout() {
+  usePushNotifications();
+
   useEffect(() => {
     let stopSync: (() => void) | undefined;
     let unmounted = false;

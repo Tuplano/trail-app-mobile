@@ -8,6 +8,8 @@ import { FormError } from '@/components/ui/form-error';
 import { MapTrifold, Pause, Play, Stop } from '@/components/ui/icons';
 import { Text } from '@/components/ui/text';
 import { hikeTitle } from '@/features/history/hike-summary';
+import { NotificationsCard } from '@/features/notifications/notifications-card';
+import { useNotificationAccess } from '@/features/notifications/use-notification-access';
 import { BatteryCard } from '@/features/record/battery-card';
 import { FinishPanel } from '@/features/record/finish-panel';
 import { formatClock } from '@/features/record/format';
@@ -55,6 +57,8 @@ export default function RecordScreen() {
   const location = useLocationAccess();
   const batteryOptimized = useBatteryOptimization();
   const [batteryDismissed, setBatteryDismissed] = useState(false);
+  const notifications = useNotificationAccess();
+  const [notificationsDismissed, setNotificationsDismissed] = useState(false);
   const [layout, setLayout] = useState<'map' | 'stats'>('map');
   const [error, setError] = useState<string | null>(null);
   const { start, pause, resume, finish, save, discard } = useRecorderStore.getState();
@@ -91,6 +95,16 @@ export default function RecordScreen() {
   // location is sorted, so only one card shows at a time.
   const showBatteryCard =
     status === 'idle' && canGo && batteryOptimized === true && !batteryDismissed;
+  // Then, also optional, notifications for badges and levels. Battery comes
+  // first (it decides whether hikes record well; this is only news), so this
+  // waits until the battery check is known rather than flash before it.
+  const showNotificationsCard =
+    status === 'idle' &&
+    canGo &&
+    batteryOptimized !== null &&
+    !showBatteryCard &&
+    notifications.access === 'ask' &&
+    !notificationsDismissed;
   // Before Start and while recording the map follows the hiker; once
   // finished it frames the whole track.
   const map = (
@@ -190,6 +204,13 @@ export default function RecordScreen() {
                 />
               )}
               {showBatteryCard && <BatteryCard onDismiss={() => setBatteryDismissed(true)} />}
+              {showNotificationsCard && (
+                <NotificationsCard
+                  asking={notifications.asking}
+                  onAllow={notifications.ask}
+                  onDismiss={() => setNotificationsDismissed(true)}
+                />
+              )}
               <FormError message={error} />
               {status === 'idle' && !missingAccess && (
                 <Button
