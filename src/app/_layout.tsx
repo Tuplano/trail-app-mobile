@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
 
 import { queryClient } from '@/api/query-client';
+import { BadgeUnlocks } from '@/features/achievements/badge-unlocks';
 import { useAuthStore } from '@/features/auth/auth-store';
 import { useColors } from '@/theme/use-colors';
 // Defines the background location task. It must load at startup, because the
@@ -98,6 +99,8 @@ export default function RootLayout() {
             <Stack.Screen name="sign-up" />
           </Stack.Protected>
         </Stack>
+        {/* Badge unlock banner and pop-up, over every signed-in screen. */}
+        {signedIn && <BadgeUnlocks />}
       </ThemeProvider>
     </QueryClientProvider>
   );

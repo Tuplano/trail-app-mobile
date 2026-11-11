@@ -104,6 +104,7 @@ export function requestSync(): Promise<void> {
         showStatus({ syncing: true });
         const run = await processOutbox(await getDb(), HANDLERS);
         if (__DEV__) console.info('Sync run', run);
+        if (run.uploaded > 0) showStatus({ lastUploadAt: Date.now() });
       } while (runAgain);
       await scheduleRetry();
     } catch (error) {

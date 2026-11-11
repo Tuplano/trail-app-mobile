@@ -23,6 +23,12 @@ export type SyncSnapshot = {
   unmetered: boolean | null;
   /** The hike uploading right now and how far it has got; null between uploads. */
   uploadProgress: UploadProgress | null;
+  /**
+   * When a sync run last uploaded something (epoch ms); null until one does.
+   * The server works out badges a little after a hike arrives, so the badge
+   * banner looks for new ones after this changes.
+   */
+  lastUploadAt: number | null;
 };
 
 type SyncStatusState = SyncSnapshot & {
@@ -37,6 +43,7 @@ export const INITIAL_SYNC_SNAPSHOT: SyncSnapshot = {
   online: null,
   unmetered: null,
   uploadProgress: null,
+  lastUploadAt: null,
 };
 
 /**
