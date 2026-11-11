@@ -1,16 +1,27 @@
-import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, type TextInputInstance, View } from 'react-native';
 
 import { errorMessage } from '@/api/errors';
+import { queryClient } from '@/api/query-client';
 import { Button } from '@/components/ui/button';
 import { FormError } from '@/components/ui/form-error';
 import { GearSix } from '@/components/ui/icons';
+import { StatBox, StatRow } from '@/components/ui/stat-box';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { useAuthStore } from '@/features/auth/auth-store';
 import type { User } from '@/features/auth/session-storage';
+import {
+  MY_BADGES_KEY,
+  MY_STATS_KEY,
+  useMyBadges,
+  useMyStats,
+} from '@/features/achievements/achievements-api';
+import { levelProgress, profileStats } from '@/features/achievements/achievements-format';
+import { BadgeGrid } from '@/features/achievements/badge-grid';
+import { LevelCard } from '@/features/achievements/level-card';
 import { describeAuthError, type FieldErrors } from '@/features/auth/validation';
 import { useProfile } from '@/features/people/people-api';
 import { followerLabel } from '@/features/people/people-cache';
@@ -31,6 +42,17 @@ export default function ProfileScreen() {
   const update = useUpdateMe();
   // Your counts (posts, followers, following) come from your public profile.
   const counts = useProfile(user?.id);
+  const stats = useMyStats();
+  const badges = useMyBadges();
+
+  // The server updates xp and badges a little after a hike uploads: look
+  // again whenever the tab comes into view, if the last look is old.
+  useFocusEffect(
+    useCallback(() => {
+      void queryClient.refetchQueries({ queryKey: MY_STATS_KEY, stale: true });
+      void queryClient.refetchQueries({ queryKey: MY_BADGES_KEY, stale: true });
+    }, []),
+  );
 
   // This screen only exists while signed in, and signing in always saves the user.
   if (!user) return null;
@@ -38,6 +60,20 @@ export default function ProfileScreen() {
   return (
     <Screen edges={['top']} contentStyle={styles.page}>
       <MyProfileHeader user={user} followers={counts.data?.followerCount} />
+      {stats.data ? (
+        <>
+          <LevelCard progress={levelProgress(stats.data)} />
+          <StatRow>
+            {profileStats(stats.data).map((stat) => (
+              <StatBox key={stat.label} label={stat.label} value={stat.value} />
+            ))}
+          </StatRow>
+        </>
+      ) : stats.isError ? (
+        <Text variant="small" color="muted2">
+          Your level and badges show when you’re back online.
+        </Text>
+      ) : null}
       {counts.data ? (
         <ProfileCounts
           userId={user.id}
@@ -46,6 +82,7 @@ export default function ProfileScreen() {
           following={counts.data.followingCount}
         />
       ) : null}
+      {badges.data && badges.data.length > 0 ? <BadgeGrid badges={badges.data} /> : null}
       {refresh.error ? (
         <Text variant="small" color="muted2">
           Showing your saved profile. {errorMessage(refresh.error)}

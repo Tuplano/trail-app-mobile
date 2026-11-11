@@ -39,3 +39,13 @@ export { ChatCircleIcon as ChatCircle } from 'phosphor-react-native/src/icons/Ch
 export { PaperPlaneRightIcon as PaperPlaneRight } from 'phosphor-react-native/src/icons/PaperPlaneRight';
 export { MagnifyingGlassIcon as MagnifyingGlass } from 'phosphor-react-native/src/icons/MagnifyingGlass';
 export { XCircleIcon as XCircle } from 'phosphor-react-native/src/icons/XCircle';
+// Badge icons: the API names a badge's icon, see features/achievements/badge-icon.ts.
+export { FootprintsIcon as Footprints } from 'phosphor-react-native/src/icons/Footprints';
+export { CompassIcon as Compass } from 'phosphor-react-native/src/icons/Compass';
+export { MedalIcon as Medal } from 'phosphor-react-native/src/icons/Medal';
+export { TrophyIcon as Trophy } from 'phosphor-react-native/src/icons/Trophy';
+export { FlagBannerIcon as FlagBanner } from 'phosphor-react-native/src/icons/FlagBanner';
+export { SneakerIcon as Sneaker } from 'phosphor-react-native/src/icons/Sneaker';
+export { MountainsIcon as Mountains } from 'phosphor-react-native/src/icons/Mountains';
+export { CalendarCheckIcon as CalendarCheck } from 'phosphor-react-native/src/icons/CalendarCheck';
+export { CalendarStarIcon as CalendarStar } from 'phosphor-react-native/src/icons/CalendarStar';
