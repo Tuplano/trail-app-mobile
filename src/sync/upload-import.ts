@@ -4,6 +4,7 @@ import { ApiError, toApiError } from '@/api/errors';
 import { env } from '@/config/env';
 import { clearImportFile, type Hike, setSyncStatus } from '@/db/hikes';
 import type { Db } from '@/db/types';
+import { APP_VERSION, APP_VERSION_HEADER, noteUpdateRequired } from '@/features/app-update/app-update';
 import { useAuthStore } from '@/features/auth/auth-store';
 import { refreshSession } from '@/features/auth/refresh-session';
 
@@ -73,12 +74,16 @@ const sendImportFile: SendImport = async (hike) => {
     const token = useAuthStore.getState().session?.accessToken;
     return fetch(`${env.apiUrl}/api/v1/hikes/${hike.id}/import`, {
       method: 'PUT',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: {
+        [APP_VERSION_HEADER]: APP_VERSION,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: form,
     });
   };
 
   let response = await attempt();
+  noteUpdateRequired(response);
   if (response.status === 401 && (await refreshSession()) === 'refreshed') {
     response = await attempt();
   }

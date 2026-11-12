@@ -1,6 +1,7 @@
 import createClient from 'openapi-fetch';
 
 import { env } from '@/config/env';
+import { appVersionMiddleware } from '@/features/app-update/app-version-middleware';
 import { authMiddleware } from '@/features/auth/auth-middleware';
 
 import type { paths } from './schema';
@@ -16,6 +17,8 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 });
 
+// Tells the API which version this is, and notices when it's too old (426).
+api.use(appVersionMiddleware);
 // Signs every request and refreshes the session when the API answers 401.
 api.use(authMiddleware);
 

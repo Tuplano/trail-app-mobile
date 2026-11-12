@@ -16,6 +16,8 @@ import { useEffect } from 'react';
 import { Appearance, useColorScheme } from 'react-native';
 
 import { queryClient } from '@/api/query-client';
+import { initSentry, withSentry } from '@/config/sentry';
+import { UpdateRequired } from '@/features/app-update/update-required';
 import { BadgeUnlocks } from '@/features/achievements/badge-unlocks';
 import { useAuthStore } from '@/features/auth/auth-store';
 import { useColors } from '@/theme/use-colors';
@@ -28,10 +30,13 @@ import '@/tracking/location-task';
 // The light palette stays in tokens.ts for a theme switch in Settings later.
 Appearance.setColorScheme('dark');
 
+// Crash reports, as early as possible (does nothing until a Sentry DSN is set).
+initSentry();
+
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ fade: true, duration: 300 });
 
-export default function RootLayout() {
+function RootLayout() {
   const colorScheme = useColorScheme();
   const authStatus = useAuthStore((s) => s.status);
   const colors = useColors();
@@ -103,7 +108,11 @@ export default function RootLayout() {
         </Stack>
         {/* Badge unlock banner and pop-up, over every signed-in screen. */}
         {signedIn && <BadgeUnlocks />}
+        {/* Over everything, signed in or not, once the API says this version is too old. */}
+        <UpdateRequired />
       </ThemeProvider>
     </QueryClientProvider>
   );
 }
+
+export default withSentry(RootLayout);
