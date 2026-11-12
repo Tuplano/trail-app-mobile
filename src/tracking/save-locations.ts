@@ -10,7 +10,6 @@ import {
 import type { Db } from '@/db/types';
 
 import { type HikeStats, refreshHikeStats } from './hike-stats';
-import { filterPoints } from './point-filter';
 
 /** A fix from expo-location in the shape track_points stores. */
 export function toTrackPoint(location: LocationObject): NewTrackPoint {
@@ -33,8 +32,10 @@ export function toTrackPoint(location: LocationObject): NewTrackPoint {
  *
  * Fixes from before the hike started are dropped: when GPS turns on, Android
  * can first hand over its last known position, which may be minutes old and
- * somewhere else entirely. So are inaccurate fixes and ones too close to the
- * last saved point.
+ * somewhere else entirely. So are fixes not newer than the last saved one
+ * (the OS can hand a fix over twice). Every other fix is saved as it came: deciding which
+ * ones count (inaccurate, a jump, standing still) is the shared rules' job
+ * (src/tracking/geo), which the server runs on these same points.
  */
 export async function saveLocations(
   db: Db,
@@ -45,15 +46,14 @@ export async function saveLocations(
   const hike = await getRecordingHike(db);
   if (!hike) return nothing;
 
-  const fresh = locations
-    .filter((l) => l.timestamp >= hike.startedAt)
+  const last = await getLastTrackPoint(db, hike.id);
+  const after = last?.recordedAt ?? -Infinity;
+  const points = locations
+    .filter((l) => l.timestamp >= hike.startedAt && l.timestamp > after)
     .sort((a, b) => a.timestamp - b.timestamp)
     .map(toTrackPoint);
-  if (fresh.length === 0) return nothing;
-
-  // Drop inaccurate fixes and GPS wobble (see point-filter.ts).
-  const points = filterPoints(fresh, await getLastTrackPoint(db, hike.id));
   if (points.length === 0) return nothing;
+
   await addTrackPoints(db, hike.id, points);
   return { saved: points.length, ...(await refreshHikeStats(db, hike.id)) };
 }

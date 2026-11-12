@@ -1,5 +1,5 @@
 import { ApiError } from '@/api/errors';
-import { distanceM } from '@/tracking/geo';
+import { haversineDistance as distanceM } from '@/tracking/geo/distance';
 
 import {
   addBlocker,

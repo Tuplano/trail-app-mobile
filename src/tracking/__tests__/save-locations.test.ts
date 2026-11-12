@@ -22,12 +22,12 @@ async function freshDb() {
   return db;
 }
 
-/** A fix walking north: each second of `timestamp` is ~11 m further along. */
+/** A fix walking north at a hiker's pace: each second of `timestamp` is ~1.1 m further along. */
 function fix(timestamp: number, coords: Partial<LocationObject['coords']> = {}): LocationObject {
   return {
     timestamp,
     coords: {
-      latitude: 14.6 + timestamp / 1e7,
+      latitude: 14.6 + timestamp / 1e8,
       longitude: 121.0,
       altitude: 50,
       accuracy: 5,
@@ -100,36 +100,47 @@ describe('saveLocations', () => {
     expect(points.map((p) => [p.seq, p.recordedAt])).toEqual([[0, 12_000]]);
   });
 
-  it('drops GPS wobble, also across batches', async () => {
+  it('saves every fix, and leaves wobble and bad fixes to the shared rules', async () => {
     const db = await freshDb();
     const { id } = await createHike(db, 500);
 
+    // Standing still, then an inaccurate fix: all saved, none adds distance.
     const standingStill = (t: number) => fix(t, { latitude: 14.6, longitude: 121.0 });
-    expect(await saved(db, [standingStill(1000), standingStill(2000)])).toBe(1);
-    // The next batch is compared with the last saved point, not just itself.
-    expect(await saved(db, [standingStill(3000)])).toBe(0);
-    expect(await saved(db, [fix(5000), fix(6000, { accuracy: 80 })])).toBe(1);
+    expect(await saved(db, [standingStill(1000), standingStill(2000)])).toBe(2);
+    const result = await saveLocations(db, [standingStill(3000), fix(6000, { latitude: 14.6, accuracy: 80 })]);
+    expect(result.saved).toBe(2);
+    expect(result.stats).toMatchObject({ pointCount: 4, distanceM: 0 });
 
-    expect((await getTrackPoints(db, id)).map((p) => p.recordedAt)).toEqual([1000, 5000]);
+    expect((await getTrackPoints(db, id)).map((p) => p.recordedAt)).toEqual([1000, 2000, 3000, 6000]);
+  });
+
+  it("doesn't save a fix twice, or one older than the last saved", async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 500);
+
+    expect(await saved(db, [fix(1000), fix(2000)])).toBe(2);
+    expect(await saved(db, [fix(2000), fix(1500), fix(3000)])).toBe(1);
+    expect((await getTrackPoints(db, id)).map((p) => p.recordedAt)).toEqual([1000, 2000, 3000]);
   });
 
   it("updates the hike's stats with each saved batch", async () => {
     const db = await freshDb();
     const { id } = await createHike(db, 500);
 
-    const first = await saveLocations(db, [fix(1000), fix(2000)]);
+    // 10 s apart: ~11 m each, a walking pace.
+    const first = await saveLocations(db, [fix(10_000), fix(20_000)]);
     expect(first.stats).toMatchObject({ pointCount: 2 });
     expect(first.stats!.distanceM).toBeCloseTo(11.1, 0);
 
-    const second = await saveLocations(db, [fix(3000)]);
+    const second = await saveLocations(db, [fix(30_000)]);
     expect(second.stats!.distanceM).toBeCloseTo(22.2, 0);
     expect((await getHike(db, id))!.distanceM).toBeCloseTo(22.2, 0);
 
     // The whole path comes back too, for the live map.
-    expect(second.path!.map((p) => p.recordedAt)).toEqual([1000, 2000, 3000]);
+    expect(second.path!.map((p) => p.recordedAt)).toEqual([10_000, 20_000, 30_000]);
 
     // Nothing saved, nothing recomputed.
-    expect(await saveLocations(db, [fix(3000)])).toEqual({ saved: 0, stats: null, path: null });
+    expect(await saveLocations(db, [fix(30_000)])).toEqual({ saved: 0, stats: null, path: null });
   });
 
   it('does nothing for an empty batch', async () => {

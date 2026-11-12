@@ -66,7 +66,8 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "gen:api": "openapi-typescript http://localhost:3000/docs-json -o src/api/schema.d.ts"
+    "gen:api": "openapi-typescript http://localhost:3000/docs-json -o src/api/schema.d.ts",
+    "sync:geo": "node scripts/sync-geo.js"
   },
   "private": true,
   "overrides": {

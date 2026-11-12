@@ -1,6 +1,6 @@
 import { ApiError } from '@/api/errors';
 import type { components } from '@/api/schema';
-import { distanceM } from '@/tracking/geo';
+import { haversineDistance as distanceM } from '@/tracking/geo/distance';
 
 export type Zone = components['schemas']['PrivacyZoneDto'];
 export type NewZoneBody = components['schemas']['CreatePrivacyZoneDto'];
@@ -129,7 +129,7 @@ export function toBody(draft: ZoneDraft): NewZoneBody {
   };
 }
 
-/** Earth's mean radius, as in tracking/geo.ts. */
+/** Earth's mean radius, in meters. */
 const EARTH_RADIUS_M = 6_371_000;
 
 /**

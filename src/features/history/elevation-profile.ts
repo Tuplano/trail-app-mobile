@@ -1,5 +1,5 @@
 import type { PathPoint } from '@/db/track-points';
-import { distanceM } from '@/tracking/geo';
+import { haversineDistance as distanceM } from '@/tracking/geo/distance';
 
 /** How many bars the elevation chart has, as in the design. */
 export const PROFILE_BARS = 40;
