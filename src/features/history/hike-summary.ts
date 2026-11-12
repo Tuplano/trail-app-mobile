@@ -99,9 +99,21 @@ export type HikeSyncView = {
  * `progress` is the upload going on right now, if it is this hike's.
  */
 export function describeHikeSync(
-  hike: Pick<HistoryHike, 'id' | 'syncStatus' | 'pointCount'>,
+  hike: Pick<HistoryHike, 'id' | 'syncStatus' | 'pointCount'> & Partial<Pick<HistoryHike, 'source'>>,
   online: boolean | null,
   progress: UploadProgress | null = null,
+): HikeSyncView {
+  const view = describeUpload(hike, online, progress);
+  if (hike.source !== 'imported') return view;
+  // An imported hike goes up as one file, not point by point.
+  if (view.chip === 'uploading') return { ...view, note: 'Uploading the GPX file…' };
+  return view.problem ? view : { ...view, note: `Imported from GPX · ${view.note}` };
+}
+
+function describeUpload(
+  hike: Pick<HistoryHike, 'id' | 'syncStatus' | 'pointCount'>,
+  online: boolean | null,
+  progress: UploadProgress | null,
 ): HikeSyncView {
   const mine = progress?.hikeId === hike.id ? progress : null;
   // The list is read from the database a moment before the upload marks the

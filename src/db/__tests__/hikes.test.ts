@@ -1,7 +1,10 @@
 import {
+  clearImportFile,
   countFailedHikes,
   createHike,
+  createImportedHike,
   deleteHike,
+  findOverlappingHike,
   getHike,
   getRecordingHike,
   listFinishedHikes,
@@ -158,5 +161,81 @@ describe('setHikeTitle', () => {
   it('fails for an unknown hike', async () => {
     const db = await freshDb();
     await expect(setHikeTitle(db, 'nope', 'x')).rejects.toThrow(/not found/);
+  });
+});
+
+describe('createImportedHike', () => {
+  const points = [
+    { recordedAt: 1000, lat: 16.5, lng: 120.5, altitudeM: 2200 },
+    { recordedAt: 61_000, lat: 16.51, lng: 120.5, altitudeM: null },
+  ];
+  const input = {
+    id: 'imported-1',
+    title: 'Mt. Pulag',
+    startedAt: 1000,
+    endedAt: 61_000,
+    fileUri: 'file:///docs/gpx-imports/imported-1.gpx',
+    stats: { distanceM: 1112, elevationGainM: 0, movingTimeS: 60 },
+    points,
+  };
+
+  it('saves a finished, imported hike with its points, waiting to upload', async () => {
+    const db = await freshDb();
+    const hike = await createImportedHike(db, input);
+    expect(hike).toMatchObject({
+      id: 'imported-1',
+      title: 'Mt. Pulag',
+      status: 'finished',
+      startedAt: 1000,
+      endedAt: 61_000,
+      syncStatus: 'pending',
+      source: 'imported',
+      importFileUri: input.fileUri,
+      distanceM: 1112,
+      movingTimeS: 60,
+    });
+    expect((await getTrackPoints(db, 'imported-1', 0, 10)).map((p) => p.seq)).toEqual([0, 1]);
+    expect(await listFinishedHikes(db)).toEqual([expect.objectContaining({ id: 'imported-1', pointCount: 2 })]);
+  });
+
+  it('saves nothing when the points are refused', async () => {
+    const db = await freshDb();
+    const bad = { ...input, points: [...points, { recordedAt: 2, lat: 200, lng: 0, altitudeM: null }] };
+    await expect(createImportedHike(db, bad)).rejects.toThrow();
+    expect(await getHike(db, 'imported-1')).toBeNull();
+  });
+
+  it('forgets the file once uploaded', async () => {
+    const db = await freshDb();
+    await createImportedHike(db, input);
+    await clearImportFile(db, 'imported-1');
+    expect((await getHike(db, 'imported-1'))?.importFileUri).toBeNull();
+  });
+
+  it('marks hikes recorded here as recorded', async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 1000);
+    expect(await getHike(db, id)).toMatchObject({ source: 'recorded', importFileUri: null });
+  });
+});
+
+describe('findOverlappingHike', () => {
+  it('finds a hike whose time touches the range, like the API does', async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 10_000);
+    await setHikeStatus(db, id, 'finished', 20_000);
+
+    expect(await findOverlappingHike(db, 0, 9_999)).toBeNull();
+    expect(await findOverlappingHike(db, 20_001, 30_000)).toBeNull();
+    expect(await findOverlappingHike(db, 0, 10_000)).toMatchObject({ id, startedAt: 10_000 });
+    expect(await findOverlappingHike(db, 15_000, 16_000)).toMatchObject({ id });
+    expect(await findOverlappingHike(db, 20_000, 25_000)).toMatchObject({ id });
+  });
+
+  it('counts a hike still being recorded from its start', async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 10_000);
+    expect(await findOverlappingHike(db, 5_000, 10_000)).toMatchObject({ id });
+    expect(await findOverlappingHike(db, 5_000, 9_000)).toBeNull();
   });
 });

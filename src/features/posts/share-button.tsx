@@ -9,7 +9,15 @@ import { useColors } from '@/theme/use-colors';
  * Under a hike's details, as in the design: "Share to feed", or once it's
  * shared, "Shared · view in feed" (a hike has one post).
  */
-export function ShareButton({ shared, onPress }: { shared: boolean; onPress: () => void }) {
+export function ShareButton({
+  shared,
+  onPress,
+  style,
+}: {
+  shared: boolean;
+  onPress: () => void;
+  style?: object;
+}) {
   const colors = useColors();
   const color = shared ? colors.muted2 : colors.accentText;
   const Icon = shared ? Check : ShareNetwork;
@@ -24,6 +32,7 @@ export function ShareButton({ shared, onPress }: { shared: boolean; onPress: () 
           borderColor: shared ? colors.line : colors.accent,
           backgroundColor: pressed ? colors.tint : 'transparent',
         },
+        style,
       ]}>
       <Icon size={17} color={color} />
       <Text style={[styles.label, { color }]}>

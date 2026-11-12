@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { DeviceMobile } from '@/components/ui/icons';
+import { DeviceMobile, FileArrowUp } from '@/components/ui/icons';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { ElevationChart } from '@/features/history/elevation-chart';
 import { HikeStatsGrid } from '@/features/history/hike-stats-grid';
+import { ExportGpxButton } from '@/features/gpx/export-button';
 import { formatHikeDate, hikeTitle } from '@/features/history/hike-summary';
 import { useHikeDetail } from '@/features/history/use-hikes';
 import { ShareButton } from '@/features/posts/share-button';
@@ -14,7 +15,7 @@ import { useColors } from '@/theme/use-colors';
 
 /**
  * One finished hike: its route, stats and elevation, read from the phone,
- * and a button to share it to the feed.
+ * and buttons to share it to the feed or export it as a GPX file.
  */
 export default function HikeDetailScreen() {
   const colors = useColors();
@@ -65,22 +66,31 @@ export default function HikeDetailScreen() {
         has processed the hike. The app only shows the phone's numbers for now.
       */}
       <View style={styles.note}>
-        <DeviceMobile size={14} color={colors.muted2} />
+        {hike.source === 'imported' ? (
+          <FileArrowUp size={14} color={colors.muted2} />
+        ) : (
+          <DeviceMobile size={14} color={colors.muted2} />
+        )}
         <Text variant="label" color="muted2">
-          Measured on this phone
+          {hike.source === 'imported' ? 'Imported from a GPX file' : 'Measured on this phone'}
         </Text>
       </View>
 
       <HikeStatsGrid hike={hike} />
       <ElevationChart path={path} />
-      <ShareButton
-        shared={shared}
-        onPress={() =>
-          shared
-            ? router.navigate('/feed')
-            : router.push({ pathname: '/new-post/[hikeId]', params: { hikeId: hike.id } })
-        }
-      />
+      {/* As in the design: Share takes two thirds of the row, GPX the rest. */}
+      <View style={styles.actions}>
+        <ShareButton
+          shared={shared}
+          style={styles.share}
+          onPress={() =>
+            shared
+              ? router.navigate('/feed')
+              : router.push({ pathname: '/new-post/[hikeId]', params: { hikeId: hike.id } })
+          }
+        />
+        <ExportGpxButton hike={hike} style={styles.gpx} />
+      </View>
     </Screen>
   );
 }
@@ -107,5 +117,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  share: {
+    flex: 2,
+  },
+  gpx: {
+    flex: 1,
   },
 });

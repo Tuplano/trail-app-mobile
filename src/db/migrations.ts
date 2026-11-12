@@ -90,6 +90,15 @@ export const MIGRATIONS: readonly string[] = [
     value TEXT NOT NULL
   ) WITHOUT ROWID;
   `,
+
+  // 4: hikes imported from a GPX file (#47). Where a hike came from, as in
+  // the API ('manual' hikes aren't made on the phone), and the app's copy of
+  // the imported file, kept until the server has it.
+  `
+  ALTER TABLE hikes ADD COLUMN source TEXT NOT NULL DEFAULT 'recorded'
+    CHECK (source IN ('recorded', 'imported'));
+  ALTER TABLE hikes ADD COLUMN import_file_uri TEXT;
+  `,
 ];
 
 /** The schema version this build of the app expects. */

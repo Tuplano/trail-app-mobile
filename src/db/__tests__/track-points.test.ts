@@ -46,6 +46,8 @@ describe('createHike', () => {
       distanceM: 0,
       elevationGainM: 0,
       movingTimeS: 0,
+      source: 'recorded', // recorded here, not imported from a GPX file
+      importFileUri: null,
     });
     expect(await getHike(db, hike.id)).toEqual(hike);
   });

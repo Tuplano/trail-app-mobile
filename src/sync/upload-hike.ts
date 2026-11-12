@@ -8,6 +8,7 @@ import type { Db } from '@/db/types';
 
 import { GiveUpError, isPermanent } from './retry';
 import type { UploadProgress } from './sync-status-store';
+import { uploadImportedHike } from './upload-import';
 
 /** The API takes at most this many points per request. */
 export const POINTS_PER_CHUNK = 500;
@@ -78,6 +79,8 @@ export async function uploadHike(
 ): Promise<void> {
   const hike = await getHike(db, item.entityId);
   if (!hike) return; // deleted on the phone: nothing to upload, so it's done
+  // A hike imported from a GPX file goes up as its file (see upload-import.ts).
+  if (hike.source === 'imported') return uploadImportedHike(db, hike);
 
   const params = { path: { id: hike.id } };
   await setSyncStatus(db, hike.id, 'syncing');

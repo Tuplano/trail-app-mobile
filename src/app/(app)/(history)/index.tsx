@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormError } from '@/components/ui/form-error';
 import { Text } from '@/components/ui/text';
+import { ImportGpxButton } from '@/features/gpx/import-button';
 import { HikeHistoryEmpty } from '@/features/history/hike-history-empty';
 import { HikeListItem } from '@/features/history/hike-list-item';
 import { summarizeHistory } from '@/features/history/hike-summary';
@@ -13,6 +14,7 @@ import { useColors } from '@/theme/use-colors';
 /**
  * History: every finished hike, newest first, with how its upload is going.
  * Read from the phone, so it works offline and shows hikes not uploaded yet.
+ * Import adds a hike from another app's GPX file.
  */
 export default function HistoryScreen() {
   const colors = useColors();
@@ -20,15 +22,19 @@ export default function HistoryScreen() {
 
   const header = (
     <View style={styles.header}>
-      <View style={styles.titleBlock}>
-        <Text variant="title" style={styles.title}>
-          History
-        </Text>
-        {hikes && hikes.length > 0 && (
-          <Text variant="small" color="muted2">
-            {summarizeHistory(hikes)}
+      <View style={styles.titleRow}>
+        <View style={styles.titleBlock}>
+          <Text variant="title" style={styles.title}>
+            History
           </Text>
-        )}
+          {hikes && hikes.length > 0 && (
+            <Text variant="small" color="muted2">
+              {summarizeHistory(hikes)}
+            </Text>
+          )}
+        </View>
+        {/* Not in the design: brings in a hike from another app's GPX file. */}
+        <ImportGpxButton />
       </View>
       <OutboxStrip />
       <FormError
@@ -73,7 +79,14 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingBottom: 16,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   titleBlock: {
+    flex: 1,
     gap: 4,
     paddingHorizontal: 4,
   },

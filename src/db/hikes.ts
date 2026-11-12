@@ -1,10 +1,13 @@
 import { uuidv7 } from './ids';
+import { addTrackPoints, type NewTrackPoint } from './track-points';
 import type { Db } from './types';
 
 export type HikeStatus = 'recording' | 'paused' | 'finished';
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 /** Who can see a hike and its post, as in the API. 'private' is "Only me". */
 export type HikeVisibility = 'private' | 'followers' | 'public';
+/** Recorded with this app's GPS, or imported from a GPX file (as in the API). */
+export type HikeSource = 'recorded' | 'imported';
 
 /** A hike as stored on the phone. Times are epoch milliseconds. */
 export type Hike = {
@@ -19,6 +22,9 @@ export type Hike = {
   distanceM: number;
   elevationGainM: number;
   movingTimeS: number;
+  source: HikeSource;
+  /** The app's copy of an imported GPX file, until the server has it. */
+  importFileUri: string | null;
 };
 
 type HikeRow = {
@@ -33,6 +39,8 @@ type HikeRow = {
   distance_m: number;
   elevation_gain_m: number;
   moving_time_s: number;
+  source: HikeSource;
+  import_file_uri: string | null;
 };
 
 function toHike(row: HikeRow): Hike {
@@ -48,7 +56,76 @@ function toHike(row: HikeRow): Hike {
     distanceM: row.distance_m,
     elevationGainM: row.elevation_gain_m,
     movingTimeS: row.moving_time_s,
+    source: row.source,
+    importFileUri: row.import_file_uri,
   };
+}
+
+/** A hike read from a GPX file, ready to save (see features/gpx). */
+export type ImportedHikeInput = {
+  id: string;
+  title: string | null;
+  startedAt: number;
+  endedAt: number;
+  fileUri: string;
+  stats: Pick<Hike, 'distanceM' | 'elevationGainM' | 'movingTimeS'>;
+  points: readonly NewTrackPoint[];
+};
+
+/**
+ * Saves an imported hike, finished, with all its points, in one transaction:
+ * a half-saved import would show a broken route. It starts 'pending', so the
+ * outbox uploads its file like any finished hike.
+ */
+export async function createImportedHike(db: Db, input: ImportedHikeInput): Promise<Hike> {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO hikes
+         (id, title, status, started_at, ended_at, client_updated_at, source, import_file_uri,
+          distance_m, elevation_gain_m, moving_time_s)
+       VALUES (?, ?, 'finished', ?, ?, ?, 'imported', ?, ?, ?, ?)`,
+      [
+        input.id,
+        input.title,
+        input.startedAt,
+        input.endedAt,
+        input.endedAt,
+        input.fileUri,
+        input.stats.distanceM,
+        input.stats.elevationGainM,
+        input.stats.movingTimeS,
+      ],
+    );
+    await addTrackPoints(db, input.id, input.points);
+  });
+  const hike = await getHike(db, input.id);
+  if (!hike) throw new Error(`Hike ${input.id} was not saved`);
+  return hike;
+}
+
+/**
+ * A hike on this phone that overlaps the time from `startedAt` to `endedAt`,
+ * or null. The server refuses an import that overlaps another hike
+ * (HIKE_OVERLAPS: likely the same hike, recorded here and exported from a
+ * watch), so the phone checks first and says so right away.
+ */
+export async function findOverlappingHike(
+  db: Db,
+  startedAt: number,
+  endedAt: number,
+): Promise<{ id: string; title: string | null; startedAt: number } | null> {
+  const row = await db.getFirstAsync<{ id: string; title: string | null; started_at: number }>(
+    `SELECT id, title, started_at FROM hikes
+     WHERE started_at <= ? AND COALESCE(ended_at, started_at) >= ?
+     ORDER BY started_at LIMIT 1`,
+    [endedAt, startedAt],
+  );
+  return row ? { id: row.id, title: row.title, startedAt: row.started_at } : null;
+}
+
+/** Forgets an imported hike's file once the server has it (the file itself is deleted separately). */
+export async function clearImportFile(db: Db, id: string): Promise<void> {
+  await db.runAsync('UPDATE hikes SET import_file_uri = NULL WHERE id = ?', [id]);
 }
 
 /** Starts a new hike in the "recording" state. Works offline: the id is made here. */
