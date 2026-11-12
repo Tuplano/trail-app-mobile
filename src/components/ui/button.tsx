@@ -8,8 +8,12 @@ import { Text } from './text';
 
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
-  /** primary: accent outline with a glow. secondary: plain outline. */
-  variant?: 'primary' | 'secondary';
+  /**
+   * primary: accent outline with a glow. secondary: plain outline.
+   * danger: red outline and text, for what can't be undone (the design's
+   * red "Delete account").
+   */
+  variant?: 'primary' | 'secondary' | 'danger';
   icon?: ReactNode;
   loading?: boolean;
 };
@@ -41,23 +45,29 @@ export function Button({
               boxShadow: `0 0 22px ${colors.glow}`,
               backgroundColor: state.pressed ? colors.tint2 : 'transparent',
             }
-          : {
-              borderWidth: 1,
-              borderColor: colors.line,
-              backgroundColor: state.pressed ? colors.hover2 : 'transparent',
-            },
+          : variant === 'danger'
+            ? {
+                borderWidth: 1.5,
+                borderColor: colors.err,
+                backgroundColor: state.pressed ? colors.errBg : 'transparent',
+              }
+            : {
+                borderWidth: 1,
+                borderColor: colors.line,
+                backgroundColor: state.pressed ? colors.hover2 : 'transparent',
+              },
         inactive && styles.inactive,
         typeof style === 'function' ? style(state) : style,
       ]}
       {...rest}>
       {loading ? (
-        <ActivityIndicator color={colors.accentText} />
+        <ActivityIndicator color={variant === 'danger' ? colors.err : colors.accentText} />
       ) : (
         <View style={styles.content}>
           {icon}
           <Text
-            style={[styles.label, primary ? styles.primaryLabel : null]}
-            color={primary ? 'accentText' : 'text'}>
+            style={[styles.label, variant !== 'secondary' ? styles.primaryLabel : null]}
+            color={primary ? 'accentText' : variant === 'danger' ? 'err' : 'text'}>
             {label}
           </Text>
         </View>

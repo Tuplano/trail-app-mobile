@@ -26,6 +26,19 @@ async function asResponse(
   });
 }
 
+/** 401 codes about what the user typed, not about the session. */
+const CONFIRM_FAILURES = new Set(['INVALID_CREDENTIALS', 'INVALID_GOOGLE_TOKEN']);
+
+/** The API's error code in a response, or null; leaves the response readable. */
+async function errorCode(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.clone().json()) as { error?: { code?: unknown } } | null;
+    return typeof body?.error?.code === 'string' ? body.error.code : null;
+  } catch {
+    return null;
+  }
+}
+
 /** A copy of each sent request (bodies can only be read once) and the token it used. */
 const sent = new Map<string, { retry: Request; token: string }>();
 
@@ -48,17 +61,23 @@ export const authMiddleware: Middleware = {
     sent.delete(id);
     if (response.status !== 401 || !entry) return undefined;
 
+    // Read once here (expo/fetch bodies can't be read twice), then hand back this copy.
+    const original = await asResponse(response);
+    // A wrong password typed to confirm something (deleting the account) is a
+    // 401 too, but the session is fine: refreshing would only send it again.
+    if (CONFIRM_FAILURES.has((await errorCode(original)) ?? '')) return original;
+
     // If the token changed while this request was in flight, another request
     // already refreshed, so just retry. Otherwise refresh first.
     const tokenNow = useAuthStore.getState().session?.accessToken;
     if (tokenNow === entry.token) {
       const result = await refreshSession();
       // Signed out or offline: hand the original 401 back to the caller.
-      if (result !== 'refreshed') return undefined;
+      if (result !== 'refreshed') return original;
     }
 
     const newToken = useAuthStore.getState().session?.accessToken;
-    if (!newToken) return undefined;
+    if (!newToken) return original;
     entry.retry.headers.set('Authorization', `Bearer ${newToken}`);
     return asResponse(await fetch(entry.retry));
   },

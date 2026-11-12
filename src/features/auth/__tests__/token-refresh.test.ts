@@ -60,6 +60,10 @@ const fakeFetch = jest.fn(async (request: Request) => {
     validToken = 'access-2';
     return json(200, tokens(2));
   }
+  if (path === '/api/v1/me' && request.method === 'DELETE') {
+    // Deleting the account with a wrong password.
+    return json(401, { error: { code: 'INVALID_CREDENTIALS', message: 'Wrong password' } });
+  }
   if (path === '/api/v1/me') {
     return auth === `Bearer ${validToken}` ? json(200, user) : unauthorized();
   }
@@ -163,6 +167,15 @@ describe('token refresh', () => {
     expect(data).toBeUndefined();
     expect(response.status).toBe(401);
     expect(useAuthStore.getState().status).toBe('signedOut');
+  });
+
+  it("doesn't refresh (or send the password again) when the 401 is a wrong password", async () => {
+    const { error, response } = await api.DELETE('/api/v1/me', { body: { password: 'nope' } });
+
+    expect(response.status).toBe(401);
+    expect(error).toEqual({ error: { code: 'INVALID_CREDENTIALS', message: 'Wrong password' } });
+    expect(calls).toEqual(['/api/v1/me Bearer access-1']);
+    expect(useAuthStore.getState()).toMatchObject({ status: 'signedIn', session: tokens(1) });
   });
 
   it('stays signed in when the refresh fails because there is no connection', async () => {

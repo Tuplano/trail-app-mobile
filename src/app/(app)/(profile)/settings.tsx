@@ -116,8 +116,7 @@ export default function SettingsScreen() {
           icon={Trash}
           label="Delete account"
           color="err"
-          meta="Coming soon"
-          disabled
+          onPress={() => router.push('/delete-account')}
           last
         />
       </View>

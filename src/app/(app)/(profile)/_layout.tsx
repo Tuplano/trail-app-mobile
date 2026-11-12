@@ -24,6 +24,7 @@ export default function ProfileLayout() {
       {/* Only the back button, as in the design: the screen shows its title itself. */}
       <Stack.Screen name="settings" options={{ title: '', headerBackTitle: 'Profile' }} />
       <Stack.Screen name="edit-profile" options={{ title: '', headerBackTitle: 'Profile' }} />
+      <Stack.Screen name="delete-account" options={{ title: '', headerBackTitle: 'Settings' }} />
       <Stack.Screen name="offline-maps" options={{ title: '', headerBackTitle: 'Profile' }} />
       <Stack.Screen
         name="offline-map-new"
