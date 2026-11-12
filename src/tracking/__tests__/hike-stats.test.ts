@@ -6,7 +6,7 @@ import { createTestDb } from '@/db/__tests__/test-db';
 import { addTrackPoints, type PathPoint } from '@/db/track-points';
 
 import { HIKE_STATS_CASES } from '../geo/hike-stats.cases';
-import { computeStats, EMPTY_STATS, refreshHikeStats } from '../hike-stats';
+import { computeStats, computeTrack, EMPTY_STATS, refreshHikeStats } from '../hike-stats';
 
 // The sync script is plain Node; it tells whether the copy matches the API.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -60,6 +60,21 @@ describe('computeStats', () => {
     const stats = computeStats(points);
     expect(stats.pointCount).toBe(3);
     expect(stats.distanceM).toBeCloseTo(20, 0);
+  });
+});
+
+describe('computeTrack', () => {
+  it('gives the map a rest as one spot, not a squiggle', () => {
+    // Walk 50 m, stand 5 minutes with the GPS wandering a few meters, walk on.
+    const points = [
+      ...Array.from({ length: 6 }, (_, i) => at(i * 10, i * 10)),
+      ...Array.from({ length: 30 }, (_, i) => at(50 + ((i * 7) % 5) - 2, 60 + i * 10)),
+      ...Array.from({ length: 5 }, (_, i) => at(60 + i * 10, 370 + i * 10)),
+    ];
+    const { stats, path } = computeTrack(points);
+    expect(stats.pointCount).toBe(41);
+    expect(path.length).toBeLessThan(15);
+    expect(stats.distanceM).toBeLessThan(105);
   });
 });
 

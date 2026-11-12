@@ -5,6 +5,8 @@ import { pathDistance } from './distance';
 import { elevationChange } from './elevation';
 import { filterWithReport, type GpsFix, type Jump } from './filter';
 import { movingTime } from './moving';
+import { smoothAltitudes } from './smooth';
+import { collapseStops } from './stops';
 import { thinPoints } from './thin';
 
 /** A recorded fix as both the API and the app store it. */
@@ -32,15 +34,16 @@ export interface HikeStats {
  * the two always agree.
  *
  * In order: drop inaccurate fixes and impossible jumps (filterWithReport),
- * drop steps too small to be real (thinPoints), then measure what's left.
- * Returns the kept fixes too (they make the route) and the jumps (the API's
- * anti-cheat checks look at them).
+ * turn each stop into one spot so resting adds no distance (stops.ts),
+ * average out GPS height wobble (smooth.ts), drop steps too small to be real
+ * (thinPoints), then measure what's left. Returns the kept fixes too (they
+ * make the route) and the jumps (the API's anti-cheat checks look at them).
  */
 export function computeHikeStats<T extends HikeFix>(
   fixes: readonly T[],
 ): { stats: HikeStats; kept: T[]; jumps: Jump[] } {
   const { kept: filtered, jumps } = filterWithReport(fixes);
-  const kept = thinPoints(filtered);
+  const kept = thinPoints(smoothAltitudes(collapseStops(filtered)));
   const { gainM, lossM } = elevationChange(kept);
 
   let maxAltitudeM: number | null = null;

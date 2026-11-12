@@ -2,7 +2,7 @@ import { getUnfinishedHikes, setHikeStatus } from '@/db/hikes';
 import { getLastTrackPoint, getTrackPath, type PathPoint } from '@/db/track-points';
 import type { Db } from '@/db/types';
 
-import { computeStats, type HikeStats } from './hike-stats';
+import { computeTrack, type HikeStats } from './hike-stats';
 
 /** An unfinished hike found in the database, with what the screen needs. */
 export type HikeToRestore = {
@@ -29,6 +29,5 @@ export async function findHikeToRestore(db: Db): Promise<HikeToRestore | null> {
   }
   if (!current) return null;
 
-  const path = await getTrackPath(db, current.id);
-  return { ...current, stats: computeStats(path), path };
+  return { ...current, ...computeTrack(await getTrackPath(db, current.id)) };
 }

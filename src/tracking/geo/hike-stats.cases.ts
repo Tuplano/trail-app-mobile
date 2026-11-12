@@ -10,7 +10,10 @@ import type { HikeFix, HikeStats } from './hike-stats';
 const START = Date.parse('2026-11-01T06:00:00.000Z');
 const LAT0 = 16.5;
 const LNG0 = 120.9;
-/** Meters east/north of the start, as degrees (close enough for a few hundred meters). */
+/**
+ * Meters east/north of the start, as degrees, on a round Earth. On the real
+ * (WGS84) Earth a "10 m" step here is about 9.94 m, which the distances show.
+ */
 const at = (eastM: number, northM: number) => ({
   lat: LAT0 + northM / 111_320,
   lng: LNG0 + eastM / (111_320 * Math.cos((LAT0 * Math.PI) / 180)),
@@ -38,7 +41,7 @@ export const HIKE_STATS_CASES: HikeStatsCase[] = [
     name: 'a steady climb',
     fixes: Array.from({ length: 21 }, (_, i) => fix(i * 10, 0, i * 10, 100 + i * 3)),
     expected: {
-      distanceM: 199.7756,
+      distanceM: 198.8213,
       movingTimeS: 200,
       durationS: 200,
       elevationGainM: 60,
@@ -57,16 +60,18 @@ export const HIKE_STATS_CASES: HikeStatsCase[] = [
       ...Array.from({ length: 5 }, (_, i) => fix(370 + i * 10, 0, 60 + i * 10)),
     ],
     expected: {
-      distanceM: 99.8878,
-      // The step that ends the rest covers 10 m in 5 minutes: not moving.
-      movingTimeS: 90,
+      distanceM: 99.4109,
+      // The rest is one stop, and the last 20 s of walking into it (within
+      // 10 m of the stop) are taken into it too: not moving.
+      movingTimeS: 70,
       durationS: 410,
       elevationGainM: 0,
       elevationLossM: 0,
       maxAltitudeM: null,
     },
-    // 6 before the rest and 5 after; the rest's wander is all dropped.
-    kept: 11,
+    // The rest (and the walking fixes within 10 m of it) become one stop:
+    // two fixes at one spot.
+    kept: 9,
     jumps: 0,
   },
   {
@@ -82,7 +87,7 @@ export const HIKE_STATS_CASES: HikeStatsCase[] = [
       fix(50, 0, 50, 50),
     ],
     expected: {
-      distanceM: 49.9439,
+      distanceM: 49.7053,
       movingTimeS: 50,
       durationS: 50,
       elevationGainM: 0,

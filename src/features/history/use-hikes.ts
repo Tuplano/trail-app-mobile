@@ -6,6 +6,7 @@ import { getHike, type Hike, type HistoryHike, listFinishedHikes } from '@/db/hi
 import { getPostForHike } from '@/db/posts';
 import { getTrackPath, type PathPoint } from '@/db/track-points';
 import { type SyncSnapshot, useSyncStatusStore } from '@/sync/sync-status-store';
+import { computeTrack } from '@/tracking/hike-stats';
 
 /** True when an upload run started or ended, or the counts moved: hikes' badges may have changed. */
 function uploadsChanged(now: SyncSnapshot, before: SyncSnapshot): boolean {
@@ -104,8 +105,11 @@ export function useHikeDetail(id: string | undefined): HikeDetail {
             setDetail({ state: 'missing' });
             return;
           }
+          // The track as the rules measured it, so the map and chart match the numbers.
           const path =
-            loadedPath.current?.id === id ? loadedPath.current.path : await getTrackPath(db, id);
+            loadedPath.current?.id === id
+              ? loadedPath.current.path
+              : computeTrack(await getTrackPath(db, id)).path;
           const post = await getPostForHike(db, id);
           if (!isLatest()) return;
           loadedPath.current = { id, path };

@@ -28,12 +28,25 @@ export const EMPTY_STATS: HikeStats = {
 
 /** Stats for a hike's saved points, in recording order. */
 export function computeStats(points: readonly PathPoint[]): HikeStats {
-  const { stats } = computeHikeStats(points);
+  return computeTrack(points).stats;
+}
+
+/**
+ * The stats, and the track as the rules measured it: bad fixes left out,
+ * each stop one spot, heights smoothed. That's what the maps and the
+ * elevation chart draw, so a rest leaves no squiggle and the chart's climb
+ * matches the number.
+ */
+export function computeTrack(points: readonly PathPoint[]): { stats: HikeStats; path: PathPoint[] } {
+  const { stats, kept } = computeHikeStats(points);
   return {
-    pointCount: points.length,
-    distanceM: stats.distanceM,
-    elevationGainM: stats.elevationGainM,
-    movingTimeS: stats.movingTimeS,
+    stats: {
+      pointCount: points.length,
+      distanceM: stats.distanceM,
+      elevationGainM: stats.elevationGainM,
+      movingTimeS: stats.movingTimeS,
+    },
+    path: kept,
   };
 }
 
@@ -41,14 +54,13 @@ export function computeStats(points: readonly PathPoint[]): HikeStats {
  * Recomputes a hike's stats from all its saved points and stores them on the
  * hike. Recomputing (instead of adding to the old numbers) means they can
  * never drift from the points, even after a crash between two writes.
- * Returns the path too, so the live map can draw it without reading it again.
+ * Returns the measured track too (see computeTrack), for the live map.
  */
 export async function refreshHikeStats(
   db: Db,
   hikeId: string,
 ): Promise<{ stats: HikeStats; path: PathPoint[] }> {
-  const path = await getTrackPath(db, hikeId);
-  const stats = computeStats(path);
-  await setHikeStats(db, hikeId, stats);
-  return { stats, path };
+  const track = computeTrack(await getTrackPath(db, hikeId));
+  await setHikeStats(db, hikeId, track.stats);
+  return track;
 }

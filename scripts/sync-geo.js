@@ -18,6 +18,8 @@ const FILES = [
   'thin.ts',
   'moving.ts',
   'elevation.ts',
+  'stops.ts',
+  'smooth.ts',
   'hike-stats.ts',
   'hike-stats.cases.ts',
 ];
