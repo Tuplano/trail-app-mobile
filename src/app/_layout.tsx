@@ -93,6 +93,8 @@ export default function RootLayout() {
             <Stack.Screen name="users/[id]/followers" options={peopleScreen} />
             <Stack.Screen name="users/[id]/following" options={peopleScreen} />
             <Stack.Screen name="search" options={peopleScreen} />
+            {/* Also over the tabs, so the new-post screen can open it and keep the post. */}
+            <Stack.Screen name="privacy-zones" options={peopleScreen} />
           </Stack.Protected>
           <Stack.Protected guard={!signedIn}>
             <Stack.Screen name="sign-in" />

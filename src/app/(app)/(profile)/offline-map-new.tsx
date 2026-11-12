@@ -1,4 +1,10 @@
-import { Camera, Map as MapView, type MapRef, UserLocation } from '@maplibre/maplibre-react-native';
+import {
+  Camera,
+  type CameraRef,
+  Map as MapView,
+  type MapRef,
+  UserLocation,
+} from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -9,7 +15,9 @@ import { DownloadSimple } from '@/components/ui/icons';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
-import { MAP_STYLE_URLS } from '@/config/map';
+import { FALLBACK_CENTER, MAP_STYLE_URLS } from '@/config/map';
+import { MapSearch } from '@/features/map-search/map-search';
+import type { Place } from '@/features/map-search/place-search';
 import {
   type Bounds,
   checkArea,
@@ -22,10 +30,11 @@ import { useSyncStatusStore } from '@/sync/sync-status-store';
 import { radius } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
 
-/** Where the map opens when the phone's position isn't known: Metro Manila. */
-const FALLBACK_CENTER: [number, number] = [121.0, 14.6];
 /** About 40 km across: a mountain and its trailheads. */
 const START_ZOOM = 10;
+/** A searched point (a peak, a trailhead) is shown with ~20 km around it. */
+const PLACE_ZOOM = 11;
+const FIT_PADDING = { top: 60, right: 30, bottom: 30, left: 30 };
 
 /**
  * Choose a region to download: everything on the map is saved. Pan and zoom
@@ -35,6 +44,7 @@ const START_ZOOM = 10;
 export default function NewOfflineMapScreen() {
   const colors = useColors();
   const mapRef = useRef<MapRef>(null);
+  const cameraRef = useRef<CameraRef>(null);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const [name, setName] = useState('');
@@ -62,6 +72,19 @@ export default function NewOfflineMapScreen() {
   const check = bounds ? checkArea(bounds) : null;
   const blocker = check ? downloadBlocker({ name, check, online, usedBytes }) : null;
   const note = check && !blocker ? dataNote(unmetered, check.estimatedBytes) : null;
+
+  /**
+   * A searched place: an area (a park, a town) fills the map; a point gets
+   * ~20 km around it. An empty region name takes the place's name.
+   */
+  const goTo = (place: Place) => {
+    if (!name.trim()) setName(place.name.slice(0, 60));
+    if (place.bounds) {
+      cameraRef.current?.fitBounds(place.bounds, { padding: FIT_PADDING, duration: 800 });
+    } else {
+      cameraRef.current?.flyTo({ center: [place.lng, place.lat], zoom: PLACE_ZOOM, duration: 800 });
+    }
+  };
 
   const download = () => {
     if (!bounds || blocker) return;
@@ -95,15 +118,22 @@ export default function NewOfflineMapScreen() {
                 .catch(() => {});
             }}
             onRegionDidChange={(e) => setBounds(e.nativeEvent.bounds)}>
-            <Camera initialViewState={{ center, zoom: START_ZOOM }} />
+            <Camera ref={cameraRef} initialViewState={{ center, zoom: START_ZOOM }} />
             <UserLocation />
           </MapView>
         ) : null}
-        <View style={[styles.hint, { backgroundColor: colors.glass, borderColor: colors.line }]}>
+        <View
+          pointerEvents="none"
+          style={[styles.hint, { backgroundColor: colors.glass, borderColor: colors.line }]}>
           <Text variant="label" color="text2">
             Everything on the map is saved
           </Text>
         </View>
+        <MapSearch
+          getNear={() => (bounds ? [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2] : center)}
+          onPick={goTo}
+          placeholder="Search a mountain or town"
+        />
       </View>
 
       <View style={styles.panel}>
@@ -154,9 +184,10 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
+  // Above the MapLibre logo; the search box takes the top.
   hint: {
     position: 'absolute',
-    top: 12,
+    bottom: 36,
     left: 12,
     paddingVertical: 6,
     paddingHorizontal: 10,

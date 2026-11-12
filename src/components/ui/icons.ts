@@ -42,6 +42,10 @@ export { XCircleIcon as XCircle } from 'phosphor-react-native/src/icons/XCircle'
 export { BellIcon as Bell } from 'phosphor-react-native/src/icons/Bell';
 export { CaretRightIcon as CaretRight } from 'phosphor-react-native/src/icons/CaretRight';
 export { DownloadSimpleIcon as DownloadSimple } from 'phosphor-react-native/src/icons/DownloadSimple';
+export { HouseLineIcon as HouseLine } from 'phosphor-react-native/src/icons/HouseLine';
+export { BriefcaseIcon as Briefcase } from 'phosphor-react-native/src/icons/Briefcase';
+export { MapPinIcon as MapPin } from 'phosphor-react-native/src/icons/MapPin';
+export { PlusCircleIcon as PlusCircle } from 'phosphor-react-native/src/icons/PlusCircle';
 // Badge icons: the API names a badge's icon, see features/achievements/badge-icon.ts.
 export { FootprintsIcon as Footprints } from 'phosphor-react-native/src/icons/Footprints';
 export { CompassIcon as Compass } from 'phosphor-react-native/src/icons/Compass';

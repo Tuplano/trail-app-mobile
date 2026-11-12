@@ -132,7 +132,7 @@ export default function NewPostScreen() {
             ]}
           />
           <VisibilityPicker value={visibility} onChange={setVisibility} disabled={busy} />
-          <PrivacyZonesRow />
+          <PrivacyZonesRow disabled={busy} />
           <View style={styles.note}>
             {online ? (
               <Info size={15} color={colors.accentHi} />

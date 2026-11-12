@@ -3,18 +3,20 @@ import { StyleSheet, View } from 'react-native';
 
 import { CaretRight, CircleDashed, GearSix, MapTrifold } from '@/components/ui/icons';
 import { useOfflineAreasStore } from '@/features/offline-maps/offline-areas-store';
+import { usePrivacyZones } from '@/features/privacy-zones/privacy-zones-api';
 import { SettingsRow } from '@/features/settings/settings-row';
 import { radius } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
 
 /**
  * The design's rows at the bottom of Profile: Offline maps (with how many
- * regions are saved), Privacy zones and Settings.
+ * regions are saved), Privacy zones (how many) and Settings.
  */
 export function ProfileLinks() {
   const colors = useColors();
   const regions = useOfflineAreasStore((s) => s.areas.filter((area) => area.complete).length);
   const loaded = useOfflineAreasStore((s) => s.loaded);
+  const { data: zones } = usePrivacyZones();
   const caret = <CaretRight size={16} color={colors.faint} />;
 
   return (
@@ -31,8 +33,9 @@ export function ProfileLinks() {
         icon={CircleDashed}
         iconColor="accentHi"
         label="Privacy zones"
-        meta="Coming soon"
-        disabled
+        meta={zones ? `${zones.length} ${zones.length === 1 ? 'zone' : 'zones'}` : undefined}
+        right={caret}
+        onPress={() => router.push('/privacy-zones')}
       />
       <SettingsRow
         icon={GearSix}

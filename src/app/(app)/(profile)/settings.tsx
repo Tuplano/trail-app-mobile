@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
@@ -8,6 +9,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { Toggle } from '@/components/ui/toggle';
 import { signOut } from '@/features/auth/auth-api';
+import { usePrivacyZones } from '@/features/privacy-zones/privacy-zones-api';
 import { useBatteryOptimization } from '@/features/record/use-battery-optimization';
 import { SegmentRow } from '@/features/settings/segment-row';
 import { SettingsRow } from '@/features/settings/settings-row';
@@ -18,7 +20,7 @@ import { useColors } from '@/theme/use-colors';
 
 /**
  * Settings, laid out as in the design. Working now: photos on Wi-Fi only,
- * battery optimization (Android) and sign out. The rest show their current
+ * privacy zones, battery optimization (Android) and sign out. The rest show their current
  * value until their tasks are built.
  */
 export default function SettingsScreen() {
@@ -26,6 +28,7 @@ export default function SettingsScreen() {
   const photosOnWifiOnly = useSettingsStore((s) => s.settings.photosOnWifiOnly);
   const change = useSettingsStore((s) => s.change);
   const batteryOptimized = useBatteryOptimization();
+  const { data: zones } = usePrivacyZones();
   const [error, setError] = useState<string | null>(null);
 
   const toggleWifiOnly = () => {
@@ -94,7 +97,12 @@ export default function SettingsScreen() {
           accessibilityRole="switch"
           accessibilityState={{ checked: photosOnWifiOnly }}
         />
-        <SettingsRow icon={CircleDashed} label="Privacy zones" meta="Coming soon" disabled />
+        <SettingsRow
+          icon={CircleDashed}
+          label="Privacy zones"
+          meta={zones ? `${zones.length}` : undefined}
+          onPress={() => router.push('/privacy-zones')}
+        />
         {Platform.OS === 'android' && (
           <SettingsRow
             icon={BatteryCharging}
