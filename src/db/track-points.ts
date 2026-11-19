@@ -65,17 +65,24 @@ export async function addTrackPoints(
 }
 
 /**
- * Just what stats need from a point: where, when, how high, and how sure the
- * GPS was (the shared rules ignore steps smaller than a fix's accuracy).
+ * Just what stats need from a point: where, when, how high, how sure the GPS
+ * was (the shared rules ignore steps smaller than a fix's accuracy), and the
+ * air pressure (the rules take the climb from it when there is one).
  */
-export type PathPoint = Pick<TrackPoint, 'recordedAt' | 'lat' | 'lng' | 'altitudeM' | 'accuracyM'>;
+export type PathPoint = Pick<
+  TrackPoint,
+  'recordedAt' | 'lat' | 'lng' | 'altitudeM' | 'accuracyM' | 'pressureHpa'
+>;
 
 /** All of a hike's points in order, with only the columns stats need. */
 export async function getTrackPath(db: Db, hikeId: string): Promise<PathPoint[]> {
   const rows = await db.getAllAsync<
-    Pick<TrackPointRow, 'recorded_at' | 'lat' | 'lng' | 'altitude_m' | 'accuracy_m'>
+    Pick<
+      TrackPointRow,
+      'recorded_at' | 'lat' | 'lng' | 'altitude_m' | 'accuracy_m' | 'pressure_hpa'
+    >
   >(
-    `SELECT recorded_at, lat, lng, altitude_m, accuracy_m
+    `SELECT recorded_at, lat, lng, altitude_m, accuracy_m, pressure_hpa
      FROM track_points WHERE hike_id = ? ORDER BY seq`,
     [hikeId],
   );
@@ -85,6 +92,7 @@ export async function getTrackPath(db: Db, hikeId: string): Promise<PathPoint[]>
     lng: row.lng,
     altitudeM: row.altitude_m,
     accuracyM: row.accuracy_m,
+    pressureHpa: row.pressure_hpa,
   }));
 }
 

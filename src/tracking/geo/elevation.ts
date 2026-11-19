@@ -11,6 +11,12 @@ import type { ElevationChange, TrackPoint } from './types';
 export const ELEVATION_STEP_M = 10;
 
 /**
+ * The step for heights from the barometer, which wobble by about a meter
+ * instead of ten: small rises and dips count too.
+ */
+export const BAROMETER_STEP_M = 3;
+
+/**
  * Total climb and descent, in meters, ignoring GPS altitude noise.
  *
  * Altitude only counts once it has moved at least `thresholdM` away from the

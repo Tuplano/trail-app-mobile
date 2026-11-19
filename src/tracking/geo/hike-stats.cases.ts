@@ -26,6 +26,9 @@ const fix = (
   accuracyM = 5,
 ): HikeFix => ({ recordedAt: START + second * 1000, ...at(eastM, northM), altitudeM, accuracyM });
 
+/** The air pressure at a height in the standard atmosphere (heights.ts, reversed). */
+const pressureAt = (heightM: number) => 1013.25 * (1 - heightM / 44_330.77) ** (1 / 0.190_263);
+
 export interface HikeStatsCase {
   name: string;
   fixes: HikeFix[];
@@ -47,6 +50,7 @@ export const HIKE_STATS_CASES: HikeStatsCase[] = [
       elevationGainM: 60,
       elevationLossM: 0,
       maxAltitudeM: 160,
+      heightSource: 'altitude',
     },
     kept: 21,
     jumps: 0,
@@ -68,6 +72,7 @@ export const HIKE_STATS_CASES: HikeStatsCase[] = [
       elevationGainM: 0,
       elevationLossM: 0,
       maxAltitudeM: null,
+      heightSource: 'altitude',
     },
     // The rest (and the walking fixes within 10 m of it) become one stop:
     // two fixes at one spot.
@@ -93,9 +98,32 @@ export const HIKE_STATS_CASES: HikeStatsCase[] = [
       elevationGainM: 0,
       elevationLossM: 0,
       maxAltitudeM: 50,
+      heightSource: 'altitude',
     },
     kept: 4,
     jumps: 1,
+  },
+  {
+    // 200 m north climbing 80 m, with a barometer. GPS reads 45 m too high
+    // and wobbles 6 m up and down; the pressure follows the true height. The
+    // climb comes from the pressure (4 m a fix, each over the 3 m step), the
+    // level from GPS with its wobble averaged out: 180 + 45 - 6/21.
+    name: 'a steady climb measured by the barometer',
+    fixes: Array.from({ length: 21 }, (_, i) => ({
+      ...fix(i * 10, 0, i * 10, 145 + i * 4 + (i % 2 ? 6 : -6)),
+      pressureHpa: pressureAt(100 + i * 4),
+    })),
+    expected: {
+      distanceM: 198.8213,
+      movingTimeS: 200,
+      durationS: 200,
+      elevationGainM: 80,
+      elevationLossM: 0,
+      maxAltitudeM: 224.7143,
+      heightSource: 'barometer',
+    },
+    kept: 21,
+    jumps: 0,
   },
   {
     name: 'no fixes',
@@ -107,6 +135,7 @@ export const HIKE_STATS_CASES: HikeStatsCase[] = [
       elevationGainM: 0,
       elevationLossM: 0,
       maxAltitudeM: null,
+      heightSource: 'altitude',
     },
     kept: 0,
     jumps: 0,

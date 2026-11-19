@@ -35,10 +35,11 @@ describe('the shared rules (copied from the API)', () => {
   it.each(HIKE_STATS_CASES)('$name', ({ fixes, expected }) => {
     const stats = computeStats(fixes as PathPoint[]);
     expect(stats.distanceM).toBeCloseTo(expected.distanceM, 2);
+    // Climb to the centimeter: barometer heights carry rounding from the formula.
+    expect(stats.elevationGainM).toBeCloseTo(expected.elevationGainM, 2);
     expect(stats).toMatchObject({
       pointCount: fixes.length,
       movingTimeS: expected.movingTimeS,
-      elevationGainM: expected.elevationGainM,
     });
   });
 
