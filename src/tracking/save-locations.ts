@@ -10,9 +10,16 @@ import {
 import type { Db } from '@/db/types';
 
 import { type HikeStats, refreshHikeStats } from './hike-stats';
+import { type PressureReading, pressureAt } from './pressure';
 
-/** A fix from expo-location in the shape track_points stores. */
-export function toTrackPoint(location: LocationObject): NewTrackPoint {
+/**
+ * A fix from expo-location in the shape track_points stores, with the air
+ * pressure the barometer read closest to it (null if none was close enough).
+ */
+export function toTrackPoint(
+  location: LocationObject,
+  readings: readonly PressureReading[] = [],
+): NewTrackPoint {
   const { latitude, longitude, altitude, accuracy, speed } = location.coords;
   return {
     recordedAt: location.timestamp,
@@ -22,6 +29,7 @@ export function toTrackPoint(location: LocationObject): NewTrackPoint {
     accuracyM: accuracy,
     // Some devices report -1 when they don't know the speed.
     speedMps: speed != null && speed >= 0 ? speed : null,
+    pressureHpa: pressureAt(readings, location.timestamp),
   };
 }
 
@@ -36,10 +44,13 @@ export function toTrackPoint(location: LocationObject): NewTrackPoint {
  * (the OS can hand a fix over twice). Every other fix is saved as it came: deciding which
  * ones count (inaccurate, a jump, standing still) is the shared rules' job
  * (src/tracking/geo), which the server runs on these same points.
+ *
+ * `readings` are the barometer's recent readings; each fix gets the closest one.
  */
 export async function saveLocations(
   db: Db,
   locations: readonly LocationObject[],
+  readings: readonly PressureReading[] = [],
 ): Promise<SaveResult> {
   const nothing: SaveResult = { saved: 0, stats: null, path: null };
   if (locations.length === 0) return nothing;
@@ -51,7 +62,7 @@ export async function saveLocations(
   const points = locations
     .filter((l) => l.timestamp >= hike.startedAt && l.timestamp > after)
     .sort((a, b) => a.timestamp - b.timestamp)
-    .map(toTrackPoint);
+    .map((location) => toTrackPoint(location, readings));
   if (points.length === 0) return nothing;
 
   await addTrackPoints(db, hike.id, points);

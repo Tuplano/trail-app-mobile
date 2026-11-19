@@ -48,7 +48,16 @@ describe('toTrackPoint', () => {
       altitudeM: 50,
       accuracyM: 5,
       speedMps: 1.2,
+      pressureHpa: null, // no barometer readings
     });
+  });
+
+  it('adds the air pressure read closest to the fix', () => {
+    const readings = [
+      { at: 9_000, hPa: 1001.0 },
+      { at: 10_400, hPa: 1000.9 },
+    ];
+    expect(toTrackPoint(fix(10_000), readings).pressureHpa).toBe(1000.9);
   });
 
   it('stores unknown values as null, including a speed of -1', () => {
@@ -61,6 +70,21 @@ describe('toTrackPoint', () => {
 });
 
 describe('saveLocations', () => {
+  it("saves each fix with the barometer's air pressure, when one was read near it", async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db, 500);
+    // Readings stopped after 3 s (e.g. the sensor paused): later fixes get none.
+    const readings = [
+      { at: 1000, hPa: 900.4 },
+      { at: 2000, hPa: 900.3 },
+      { at: 3000, hPa: 900.2 },
+    ];
+
+    await saveLocations(db, [fix(1000), fix(2900), fix(60_000)], readings);
+
+    expect((await getTrackPoints(db, id)).map((p) => p.pressureHpa)).toEqual([900.4, 900.2, null]);
+  });
+
   it('saves fixes to the recording hike, oldest first', async () => {
     const db = await freshDb();
     const { id } = await createHike(db, 500);

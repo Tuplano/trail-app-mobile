@@ -31,7 +31,10 @@ const serverHas = (highest: number | null) => get.mockResolvedValue(ok({ highest
 
 /** The fake POST's calls, as plain [path, options] pairs. */
 const postCalls = () =>
-  post.mock.calls as unknown as [string, { body: { points: { seq: number }[]; totalPoints: number } }][];
+  post.mock.calls as unknown as [
+    string,
+    { body: { points: { seq: number; pressureHpa?: number | null }[]; totalPoints: number } },
+  ][];
 /** Each points request as [first seq, last seq]. */
 const sentRanges = () =>
   postCalls()
@@ -50,6 +53,8 @@ async function finishedHike(pointCount: number) {
     altitudeM: 100,
     accuracyM: 5,
     speedMps: 1.2,
+    // Every third point has no barometer reading (e.g. the sensor was paused).
+    pressureHpa: i % 3 === 2 ? null : 1000 - i * 0.01,
   }));
   await addTrackPoints(db, hike.id, points);
   await setHikeStatus(db, hike.id, 'finished', hike.startedAt + 3_600_000);
@@ -106,6 +111,15 @@ describe('uploadHike', () => {
     ]);
     expect(finishCalls().map(([, init]) => init.body.totalPoints)).toEqual([1201]);
     expect(await syncStatus(db, hike.id)).toBe('synced');
+  });
+
+  it("sends each point's air pressure, null where there was no reading", async () => {
+    const { db, item } = await finishedHike(3);
+
+    await uploadHike(db, item);
+
+    const [, init] = postCalls().find(([path]) => path === '/api/v1/hikes/{id}/points')!;
+    expect(init.body.points.map((p) => p.pressureHpa)).toEqual([1000, 999.99, null]);
   });
 
   it('resumes after the points the server already has', async () => {

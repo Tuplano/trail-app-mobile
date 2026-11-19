@@ -1149,6 +1149,8 @@ export interface components {
                 accuracyM?: number | null;
                 /** @description Meters per second */
                 speedMps?: number | null;
+                /** @description Air pressure from the phone's barometer, in hPa. Missing when it has none. */
+                pressureHpa?: number | null;
             }[];
         };
         UploadPointsResponseDto: {

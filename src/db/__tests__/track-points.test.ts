@@ -27,6 +27,7 @@ const fix = (i: number): NewTrackPoint => ({
   altitudeM: 1200 + i,
   accuracyM: 5,
   speedMps: 1.2,
+  pressureHpa: 880.5 - i * 0.01, // the barometer's air pressure, falling as the hiker climbs
 });
 
 describe('createHike', () => {
@@ -77,7 +78,16 @@ describe('addTrackPoints', () => {
     await addTrackPoints(db, id, [{ recordedAt: 5, lat: 1, lng: 2 }]);
 
     expect(await getTrackPoints(db, id)).toEqual([
-      { seq: 0, recordedAt: 5, lat: 1, lng: 2, altitudeM: null, accuracyM: null, speedMps: null },
+      {
+        seq: 0,
+        recordedAt: 5,
+        lat: 1,
+        lng: 2,
+        altitudeM: null,
+        accuracyM: null,
+        speedMps: null,
+        pressureHpa: null, // a phone without a barometer
+      },
     ]);
   });
 

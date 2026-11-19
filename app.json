@@ -60,6 +60,12 @@
           "microphonePermission": false
         }
       ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Trail reads your phone's air pressure sensor to measure how much you climb."
+        }
+      ],
       "expo-status-bar",
       "expo-sharing",
       [

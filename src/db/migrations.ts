@@ -99,6 +99,12 @@ export const MIGRATIONS: readonly string[] = [
     CHECK (source IN ('recorded', 'imported'));
   ALTER TABLE hikes ADD COLUMN import_file_uri TEXT;
   `,
+
+  // 5: air pressure (hPa) with each GPS fix, from the phone's barometer, as
+  // in the API. Null on phones without one and for points saved before.
+  `
+  ALTER TABLE track_points ADD COLUMN pressure_hpa REAL;
+  `,
 ];
 
 /** The schema version this build of the app expects. */

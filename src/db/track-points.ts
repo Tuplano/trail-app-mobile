@@ -19,9 +19,10 @@ type TrackPointRow = {
   altitude_m: number | null;
   accuracy_m: number | null;
   speed_mps: number | null;
+  pressure_hpa: number | null;
 };
 
-/** Points per INSERT. SQLite caps bound values per statement; 500 × 7 stays far below it. */
+/** Points per INSERT. SQLite caps bound values per statement; 500 × 8 stays far below it. */
 const INSERT_BATCH = 500;
 
 /**
@@ -36,9 +37,9 @@ export async function addTrackPoints(
 ): Promise<void> {
   for (let start = 0; start < points.length; start += INSERT_BATCH) {
     const batch = points.slice(start, start + INSERT_BATCH);
-    // VALUES columns are named column1…column7; column1 is the point's
+    // VALUES columns are named column1…column8; column1 is the point's
     // position in this batch, added to the hike's next free seq.
-    const values = batch.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+    const values = batch.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
     const params = batch.flatMap((p, i) => [
       i,
       p.recordedAt,
@@ -47,12 +48,14 @@ export async function addTrackPoints(
       p.altitudeM ?? null,
       p.accuracyM ?? null,
       p.speedMps ?? null,
+      p.pressureHpa ?? null,
     ]);
 
     await db.runAsync(
       `INSERT INTO track_points
-         (hike_id, seq, recorded_at, lat, lng, altitude_m, accuracy_m, speed_mps)
-       SELECT ?, next.seq + p.column1, p.column2, p.column3, p.column4, p.column5, p.column6, p.column7
+         (hike_id, seq, recorded_at, lat, lng, altitude_m, accuracy_m, speed_mps, pressure_hpa)
+       SELECT ?, next.seq + p.column1, p.column2, p.column3, p.column4, p.column5, p.column6,
+              p.column7, p.column8
        FROM (VALUES ${values}) AS p,
             (SELECT COALESCE(MAX(seq) + 1, 0) AS seq FROM track_points WHERE hike_id = ?) AS next
        ORDER BY p.column1`,
@@ -97,7 +100,7 @@ export async function countTrackPoints(db: Db, hikeId: string): Promise<number> 
 /** The hike's newest saved point, or null if it has none yet. */
 export async function getLastTrackPoint(db: Db, hikeId: string): Promise<TrackPoint | null> {
   const row = await db.getFirstAsync<TrackPointRow>(
-    `SELECT seq, recorded_at, lat, lng, altitude_m, accuracy_m, speed_mps
+    `SELECT seq, recorded_at, lat, lng, altitude_m, accuracy_m, speed_mps, pressure_hpa
      FROM track_points WHERE hike_id = ? ORDER BY seq DESC LIMIT 1`,
     [hikeId],
   );
@@ -112,7 +115,7 @@ export async function getTrackPoints(
   limit = 500,
 ): Promise<TrackPoint[]> {
   const rows = await db.getAllAsync<TrackPointRow>(
-    `SELECT seq, recorded_at, lat, lng, altitude_m, accuracy_m, speed_mps
+    `SELECT seq, recorded_at, lat, lng, altitude_m, accuracy_m, speed_mps, pressure_hpa
      FROM track_points WHERE hike_id = ? AND seq >= ? ORDER BY seq LIMIT ?`,
     [hikeId, fromSeq, limit],
   );
@@ -128,5 +131,6 @@ function toTrackPoint(row: TrackPointRow): TrackPoint {
     altitudeM: row.altitude_m,
     accuracyM: row.accuracy_m,
     speedMps: row.speed_mps,
+    pressureHpa: row.pressure_hpa,
   };
 }

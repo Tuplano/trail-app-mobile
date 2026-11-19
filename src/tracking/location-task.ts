@@ -4,6 +4,12 @@ import * as TaskManager from 'expo-task-manager';
 import { getDb } from '@/db/database';
 
 import { useLiveTrackStore } from './live-track-store';
+import {
+  getPressureReadings,
+  keepPressureReadingsAlive,
+  startPressureReadings,
+  stopPressureReadings,
+} from './pressure';
 import { saveLocations } from './save-locations';
 
 /** The background task that receives GPS fixes while a hike is recording. */
@@ -23,16 +29,35 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
     const latest = data?.locations?.at(-1);
     if (latest) useLiveTrackStore.getState().setAccuracy(latest.coords.accuracy ?? null);
     try {
-      const { stats, path } = await saveLocations(await getDb(), data?.locations ?? []);
+      const { saved, stats, path } = await saveLocations(
+        await getDb(),
+        data?.locations ?? [],
+        getPressureReadings(),
+      );
       if (stats && path) useLiveTrackStore.getState().update(stats, path);
+      // Only while a hike records: fixes can still arrive just after it stops.
+      if (saved > 0) keepPressureReadingsAlive();
     } catch (e) {
       console.warn('Could not save GPS points', e);
     }
   },
 );
 
-/** Starts GPS. Fixes go to the task above, even with the app in the background. */
+/**
+ * Starts GPS, and the barometer to pair with it. Fixes go to the task above,
+ * even with the app in the background.
+ */
 export async function startLocationUpdates(): Promise<void> {
+  await startPressureReadings();
+  try {
+    await startGps();
+  } catch (error) {
+    stopPressureReadings(); // no point reading pressure without GPS
+    throw error;
+  }
+}
+
+async function startGps(): Promise<void> {
   await Location.startLocationUpdatesAsync(LOCATION_TASK, {
     accuracy: Location.Accuracy.High, // GPS; Highest/BestForNavigation cost more battery
     distanceInterval: 5, // meters between fixes
@@ -56,13 +81,15 @@ export async function startLocationUpdates(): Promise<void> {
  * or may have stopped it; this covers both.
  */
 export async function ensureLocationUpdates(): Promise<void> {
+  await startPressureReadings();
   if (!(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK))) {
     await startLocationUpdates();
   }
 }
 
-/** Stops GPS. Safe to call when it isn't running. */
+/** Stops GPS and the barometer. Safe to call when they aren't running. */
 export async function stopLocationUpdates(): Promise<void> {
+  stopPressureReadings();
   if (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK)) {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK);
   }
