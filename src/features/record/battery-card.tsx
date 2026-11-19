@@ -32,7 +32,7 @@ export function BatteryCard({ onDismiss }: { onDismiss: () => void }) {
       <View style={styles.text}>
         <Text variant="subheading">Keep recording reliable</Text>
         <Text variant="small" color="muted">
-          To save battery, your phone may stop Trail in the background and cut a hike short. In the
+          To save battery, your phone may stop Trailing in the background and cut a hike short. In the
           settings that open:
         </Text>
         {steps.map((step, i) => (

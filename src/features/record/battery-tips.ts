@@ -9,29 +9,29 @@ const TIPS: Record<PhoneBrand, string[]> = {
   xiaomi: [
     'Turn on Autostart.',
     'Tap Battery saver (or Battery) and choose No restrictions.',
-    'Optional: in recent apps, long-press Trail and tap the lock icon.',
+    'Optional: in recent apps, long-press Trailing and tap the lock icon.',
   ],
   samsung: [
-    'Choose Trail and set it to Unrestricted (or Don\'t optimize).',
-    'Also check Settings → Battery → Background usage limits: Trail should not be in Sleeping apps.',
+    'Choose Trailing and set it to Unrestricted (or Don\'t optimize).',
+    'Also check Settings → Battery → Background usage limits: Trailing should not be in Sleeping apps.',
   ],
   huawei: [
-    'Choose Trail and set it to Don\'t allow optimization.',
-    'Also go to Settings → Battery → App launch → Trail, choose Manage manually and turn everything on.',
+    'Choose Trailing and set it to Don\'t allow optimization.',
+    'Also go to Settings → Battery → App launch → Trailing, choose Manage manually and turn everything on.',
   ],
   oneplus: [
-    'Choose Trail and set it to Don\'t optimize.',
-    'Also open Trail\'s app info → Battery and allow background activity.',
+    'Choose Trailing and set it to Don\'t optimize.',
+    'Also open Trailing\'s app info → Battery and allow background activity.',
   ],
   oppo: [
-    'Choose Trail and set it to Don\'t optimize.',
-    'Also open Trail\'s app info → Battery and allow background activity.',
+    'Choose Trailing and set it to Don\'t optimize.',
+    'Also open Trailing\'s app info → Battery and allow background activity.',
   ],
   vivo: [
-    'Choose Trail and set it to Don\'t optimize.',
-    'Also go to Settings → Battery → Background power consumption and allow Trail.',
+    'Choose Trailing and set it to Don\'t optimize.',
+    'Also go to Settings → Battery → Background power consumption and allow Trailing.',
   ],
-  other: ['Choose All apps, find Trail and set it to Don\'t optimize.'],
+  other: ['Choose All apps, find Trailing and set it to Don\'t optimize.'],
 };
 
 const MORE_HELP: Record<PhoneBrand, string> = {

@@ -60,7 +60,7 @@ export function describeSyncStatus(s: SyncSnapshot): SyncStatusView {
     return {
       tone: 'problem',
       title,
-      detail: "The last try didn't work. Trail will try again by itself.",
+      detail: "The last try didn't work. Trailing will try again by itself.",
       busy: false,
       canRetry,
     };

@@ -37,8 +37,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Trail uses your location to record the route of your hike.",
-          "locationAlwaysAndWhenInUsePermission": "Trail keeps recording your hike while your screen is locked or you're using other apps.",
+          "locationWhenInUsePermission": "Trailing uses your location to record the route of your hike.",
+          "locationAlwaysAndWhenInUsePermission": "Trailing uses your location in the background, even when the app is closed or not in use, to keep recording your hike while your screen is locked or you're using other apps.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
@@ -55,7 +55,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Trail lets you add photos from your library to a post about your hike.",
+          "photosPermission": "Trailing lets you add photos from your library to a post about your hike.",
           "cameraPermission": false,
           "microphonePermission": false
         }
@@ -63,7 +63,7 @@
       [
         "expo-sensors",
         {
-          "motionPermission": "Trail reads your phone's air pressure sensor to measure how much you climb."
+          "motionPermission": "Trailing reads your phone's air pressure sensor to measure how much you climb."
         }
       ],
       "expo-status-bar",
