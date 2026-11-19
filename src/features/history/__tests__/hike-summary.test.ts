@@ -6,6 +6,7 @@ import {
   formatHikeDate,
   formatHikeDuration,
   hikeTitle,
+  statsNote,
   summarizeHistory,
 } from '../hike-summary';
 
@@ -184,5 +185,27 @@ describe('describeOutbox', () => {
       icon: 'queued',
       label: '3 in outbox',
     });
+  });
+});
+
+describe('statsNote', () => {
+  // The design's words for whose numbers a hike shows.
+  it("says the numbers are the phone's estimate until the server's arrive", () => {
+    expect(statsNote({ statsSource: 'phone', source: 'recorded' })).toBe(
+      'Local estimate · final stats arrive after sync',
+    );
+  });
+
+  it("says when they are the server's final numbers", () => {
+    expect(statsNote({ statsSource: 'server', source: 'recorded' })).toBe(
+      'Final stats from the server',
+    );
+    expect(statsNote({ statsSource: 'server', source: 'imported' })).toBe(
+      'Final stats from the server',
+    );
+  });
+
+  it('says an import shows the GPX file\'s numbers until then', () => {
+    expect(statsNote({ statsSource: 'phone', source: 'imported' })).toBe('Imported from a GPX file');
   });
 });

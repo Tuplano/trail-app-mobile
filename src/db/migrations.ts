@@ -105,6 +105,14 @@ export const MIGRATIONS: readonly string[] = [
   `
   ALTER TABLE track_points ADD COLUMN pressure_hpa REAL;
   `,
+
+  // 6: where a hike's numbers come from (#50.6). 'phone' while they are the
+  // phone's own estimate; 'server' once the server has processed the hike
+  // and its numbers (map heights, barometer) were saved over them.
+  `
+  ALTER TABLE hikes ADD COLUMN stats_source TEXT NOT NULL DEFAULT 'phone'
+    CHECK (stats_source IN ('phone', 'server'));
+  `,
 ];
 
 /** The schema version this build of the app expects. */

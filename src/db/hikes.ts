@@ -8,6 +8,8 @@ export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 export type HikeVisibility = 'private' | 'followers' | 'public';
 /** Recorded with this app's GPS, or imported from a GPX file (as in the API). */
 export type HikeSource = 'recorded' | 'imported';
+/** Whose numbers a hike shows: the phone's estimate, or the server's final ones. */
+export type StatsSource = 'phone' | 'server';
 
 /** A hike as stored on the phone. Times are epoch milliseconds. */
 export type Hike = {
@@ -25,6 +27,8 @@ export type Hike = {
   source: HikeSource;
   /** The app's copy of an imported GPX file, until the server has it. */
   importFileUri: string | null;
+  /** 'server' once the server's final numbers replaced the phone's estimate. */
+  statsSource: StatsSource;
 };
 
 type HikeRow = {
@@ -41,6 +45,7 @@ type HikeRow = {
   moving_time_s: number;
   source: HikeSource;
   import_file_uri: string | null;
+  stats_source: StatsSource;
 };
 
 function toHike(row: HikeRow): Hike {
@@ -58,7 +63,39 @@ function toHike(row: HikeRow): Hike {
     movingTimeS: row.moving_time_s,
     source: row.source,
     importFileUri: row.import_file_uri,
+    statsSource: row.stats_source,
   };
+}
+
+/** A hike's three numbers, as the server works them out once it has processed it. */
+export type ServerStats = Pick<Hike, 'distanceM' | 'elevationGainM' | 'movingTimeS'>;
+
+/**
+ * Uploaded hikes still showing the phone's estimate, newest first: the ones
+ * to ask the server about. At most `limit`, so one sync run stays short.
+ */
+export async function listHikesAwaitingServerStats(db: Db, limit = 20): Promise<string[]> {
+  const rows = await db.getAllAsync<{ id: string }>(
+    `SELECT id FROM hikes
+     WHERE status = 'finished' AND sync_status = 'synced' AND stats_source = 'phone'
+     ORDER BY started_at DESC LIMIT ?`,
+    [limit],
+  );
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Saves the server's numbers over the phone's estimate. The phone's numbers
+ * aren't kept: the server's are better (map heights, barometer) and the
+ * history and detail both show these from now on.
+ */
+export async function saveServerStats(db: Db, id: string, stats: ServerStats): Promise<void> {
+  await db.runAsync(
+    `UPDATE hikes
+     SET distance_m = ?, elevation_gain_m = ?, moving_time_s = ?, stats_source = 'server'
+     WHERE id = ?`,
+    [stats.distanceM, stats.elevationGainM, stats.movingTimeS, id],
+  );
 }
 
 /** A hike read from a GPX file, ready to save (see features/gpx). */

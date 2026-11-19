@@ -8,10 +8,16 @@ import { getTrackPath, type PathPoint } from '@/db/track-points';
 import { type SyncSnapshot, useSyncStatusStore } from '@/sync/sync-status-store';
 import { computeTrack } from '@/tracking/hike-stats';
 
-/** True when an upload run started or ended, or the counts moved: hikes' badges may have changed. */
+/**
+ * True when an upload run started or ended, the counts moved (hikes' badges
+ * may have changed), or the server's final numbers arrived for a hike.
+ */
 function uploadsChanged(now: SyncSnapshot, before: SyncSnapshot): boolean {
   return (
-    now.syncing !== before.syncing || now.waiting !== before.waiting || now.failed !== before.failed
+    now.syncing !== before.syncing ||
+    now.waiting !== before.waiting ||
+    now.failed !== before.failed ||
+    now.serverStatsAt !== before.serverStatsAt
   );
 }
 

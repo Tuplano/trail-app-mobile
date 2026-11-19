@@ -6,6 +6,17 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /**
+ * The line above a hike's numbers saying whose they are, in the design's
+ * words: the server's final ones once it has processed the hike, otherwise
+ * the phone's estimate (or the GPX file's, for an import).
+ */
+export function statsNote(hike: Pick<Hike, 'statsSource' | 'source'>): string {
+  if (hike.statsSource === 'server') return 'Final stats from the server';
+  if (hike.source === 'imported') return 'Imported from a GPX file';
+  return 'Local estimate · final stats arrive after sync';
+}
+
+/**
  * The hike's name. Hikes don't get a title until the hiker can name them
  * (a later task), so until then it's named after the time of day it started,
  * which is easier to tell apart in a list than a date alone.

@@ -1,13 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { DeviceMobile, FileArrowUp } from '@/components/ui/icons';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { ElevationChart } from '@/features/history/elevation-chart';
 import { HikeStatsGrid } from '@/features/history/hike-stats-grid';
 import { ExportGpxButton } from '@/features/gpx/export-button';
-import { formatHikeDate, hikeTitle } from '@/features/history/hike-summary';
+import { formatHikeDate, hikeTitle, statsNote } from '@/features/history/hike-summary';
 import { useHikeDetail } from '@/features/history/use-hikes';
 import { ShareButton } from '@/features/posts/share-button';
 import { LiveTrackMap } from '@/features/record/live-track-map';
@@ -15,7 +14,8 @@ import { useColors } from '@/theme/use-colors';
 
 /**
  * One finished hike: its route, stats and elevation, read from the phone,
- * and buttons to share it to the feed or export it as a GPX file.
+ * and buttons to share it to the feed or export it as a GPX file. Its numbers
+ * are the server's final ones once sync has saved them (see sync/server-stats).
  */
 export default function HikeDetailScreen() {
   const colors = useColors();
@@ -61,20 +61,10 @@ export default function HikeDetailScreen() {
       {/* A still picture of the route: on a scrolling page, a drag should scroll. */}
       <LiveTrackMap path={path} live={false} style={styles.map} gestures={false} />
 
-      {/*
-        The design swaps this for "Final stats from the server" once the server
-        has processed the hike. The app only shows the phone's numbers for now.
-      */}
-      <View style={styles.note}>
-        {hike.source === 'imported' ? (
-          <FileArrowUp size={14} color={colors.muted2} />
-        ) : (
-          <DeviceMobile size={14} color={colors.muted2} />
-        )}
-        <Text variant="label" color="muted2">
-          {hike.source === 'imported' ? 'Imported from a GPX file' : 'Measured on this phone'}
-        </Text>
-      </View>
+      {/* Whose numbers these are: the phone's estimate until the server's arrive. */}
+      <Text variant="label" color="muted2" style={styles.note}>
+        {statsNote(hike)}
+      </Text>
 
       <HikeStatsGrid hike={hike} />
       <ElevationChart path={path} />
@@ -114,9 +104,7 @@ const styles = StyleSheet.create({
     height: 210,
   },
   note: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    paddingHorizontal: 8, // the design indents it a little from the stat boxes
   },
   actions: {
     flexDirection: 'row',

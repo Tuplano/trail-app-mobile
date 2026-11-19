@@ -9,7 +9,6 @@ export { ArrowsClockwise } from 'phosphor-react-native/src/icons/ArrowsClockwise
 export { CheckCircle } from 'phosphor-react-native/src/icons/CheckCircle';
 export { Clock } from 'phosphor-react-native/src/icons/Clock';
 export { CloudSlash } from 'phosphor-react-native/src/icons/CloudSlash';
-export { DeviceMobile } from 'phosphor-react-native/src/icons/DeviceMobile';
 // Exported as PathIcon (a plain "Path" would clash with SVG's Path).
 export { PathIcon as Path } from 'phosphor-react-native/src/icons/Path';
 export { Timer } from 'phosphor-react-native/src/icons/Timer';
@@ -47,7 +46,6 @@ export { BriefcaseIcon as Briefcase } from 'phosphor-react-native/src/icons/Brie
 export { MapPinIcon as MapPin } from 'phosphor-react-native/src/icons/MapPin';
 export { PlusCircleIcon as PlusCircle } from 'phosphor-react-native/src/icons/PlusCircle';
 export { ExportIcon as Export } from 'phosphor-react-native/src/icons/Export';
-export { FileArrowUpIcon as FileArrowUp } from 'phosphor-react-native/src/icons/FileArrowUp';
 // Badge icons: the API names a badge's icon, see features/achievements/badge-icon.ts.
 export { FootprintsIcon as Footprints } from 'phosphor-react-native/src/icons/Footprints';
 export { CompassIcon as Compass } from 'phosphor-react-native/src/icons/Compass';

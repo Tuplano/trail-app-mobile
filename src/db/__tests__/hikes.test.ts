@@ -8,7 +8,9 @@ import {
   getHike,
   getRecordingHike,
   listFinishedHikes,
+  listHikesAwaitingServerStats,
   resetFailedHikes,
+  saveServerStats,
   setHikeStatus,
   setHikeTitle,
   setSyncStatus,
@@ -237,5 +239,48 @@ describe('findOverlappingHike', () => {
     const { id } = await createHike(db, 10_000);
     expect(await findOverlappingHike(db, 5_000, 10_000)).toMatchObject({ id });
     expect(await findOverlappingHike(db, 5_000, 9_000)).toBeNull();
+  });
+});
+
+describe('server stats', () => {
+  /** A finished hike with the phone's estimate, uploaded or not. */
+  async function finished(db: Awaited<ReturnType<typeof freshDb>>, startedAt: number, synced: boolean) {
+    const { id } = await createHike(db, startedAt);
+    await setHikeStatus(db, id, 'finished', startedAt + 1000);
+    if (synced) await setSyncStatus(db, id, 'synced');
+    return id;
+  }
+
+  it("starts with the phone's estimate", async () => {
+    const db = await freshDb();
+    const { id } = await createHike(db);
+    expect((await getHike(db, id))!.statsSource).toBe('phone');
+  });
+
+  it('asks about uploaded hikes only, newest first', async () => {
+    const db = await freshDb();
+    const older = await finished(db, 1000, true);
+    await finished(db, 2000, false); // not uploaded yet: the server doesn't have it
+    const newer = await finished(db, 3000, true);
+    const { id: recording } = await createHike(db, 4000);
+    await setSyncStatus(db, recording, 'synced');
+
+    expect(await listHikesAwaitingServerStats(db)).toEqual([newer, older]);
+    expect(await listHikesAwaitingServerStats(db, 1)).toEqual([newer]);
+  });
+
+  it("saves the server's numbers over the estimate, and stops asking", async () => {
+    const db = await freshDb();
+    const id = await finished(db, 1000, true);
+
+    await saveServerStats(db, id, { distanceM: 5120, movingTimeS: 5400, elevationGainM: 312 });
+
+    expect(await getHike(db, id)).toMatchObject({
+      distanceM: 5120,
+      movingTimeS: 5400,
+      elevationGainM: 312,
+      statsSource: 'server',
+    });
+    expect(await listHikesAwaitingServerStats(db)).toEqual([]);
   });
 });

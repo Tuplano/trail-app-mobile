@@ -29,6 +29,11 @@ export type SyncSnapshot = {
    * banner looks for new ones after this changes.
    */
   lastUploadAt: number | null;
+  /**
+   * When the app last saved a hike's final numbers from the server (epoch
+   * ms); null until it does. The history and hike screens re-read then.
+   */
+  serverStatsAt: number | null;
 };
 
 type SyncStatusState = SyncSnapshot & {
@@ -44,6 +49,7 @@ export const INITIAL_SYNC_SNAPSHOT: SyncSnapshot = {
   unmetered: null,
   uploadProgress: null,
   lastUploadAt: null,
+  serverStatsAt: null,
 };
 
 /**

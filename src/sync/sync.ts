@@ -9,6 +9,7 @@ import type { Db } from '@/db/types';
 
 import { processOutbox, type UploadHandlers } from './process-outbox';
 import { loadSyncCounts, useSyncStatusStore } from './sync-status-store';
+import { fetchServerStats } from './server-stats';
 import { uploadHike } from './upload-hike';
 import { uploadPost } from './upload-post';
 
@@ -48,6 +49,16 @@ let running: Promise<void> | null = null;
 let runAgain = false;
 let started = false;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let serverStatsTimer: ReturnType<typeof setTimeout> | null = null;
+let serverStatsChecksLeft = 0;
+
+/**
+ * The server works out a hike's final numbers a few seconds after its upload.
+ * After an upload, the app asks again this often, this many times, while the
+ * app stays open; later runs (app opened, internet back) ask too.
+ */
+const SERVER_STATS_RECHECK_MS = 15_000;
+const SERVER_STATS_RECHECKS = 4;
 
 const showStatus = useSyncStatusStore.getState().update;
 
@@ -63,6 +74,32 @@ async function refreshStatus(): Promise<void> {
 function clearRetryTimer(): void {
   if (retryTimer) clearTimeout(retryTimer);
   retryTimer = null;
+}
+
+/**
+ * Saves the server's final numbers for hikes it has processed. Never throws:
+ * a failure only means the phone's estimate shows a little longer. Returns
+ * whether some uploaded hikes are still waiting to be processed.
+ */
+async function refreshServerStats(): Promise<boolean> {
+  try {
+    const { updated, notReady } = await fetchServerStats(await getDb());
+    if (updated > 0) showStatus({ serverStatsAt: Date.now() });
+    return notReady > 0;
+  } catch (error) {
+    console.warn('Could not fetch final stats from the server', error);
+    return false;
+  }
+}
+
+/** Asks for final numbers again shortly, while some are still being worked out. */
+function scheduleServerStatsCheck(): void {
+  if (!started || serverStatsTimer || serverStatsChecksLeft <= 0) return;
+  serverStatsChecksLeft--;
+  serverStatsTimer = setTimeout(() => {
+    serverStatsTimer = null;
+    requestSync();
+  }, SERVER_STATS_RECHECK_MS);
 }
 
 /**
@@ -104,7 +141,11 @@ export function requestSync(): Promise<void> {
         showStatus({ syncing: true });
         const run = await processOutbox(await getDb(), HANDLERS);
         if (__DEV__) console.info('Sync run', run);
-        if (run.uploaded > 0) showStatus({ lastUploadAt: Date.now() });
+        if (run.uploaded > 0) {
+          showStatus({ lastUploadAt: Date.now() });
+          serverStatsChecksLeft = SERVER_STATS_RECHECKS;
+        }
+        if (await refreshServerStats()) scheduleServerStatsCheck();
       } while (runAgain);
       await scheduleRetry();
     } catch (error) {
@@ -187,6 +228,8 @@ export function startSync(): () => void {
   return () => {
     started = false;
     clearRetryTimer();
+    if (serverStatsTimer) clearTimeout(serverStatsTimer);
+    serverStatsTimer = null;
     network.remove();
     app.remove();
   };
