@@ -19,6 +19,7 @@ import { MapChips } from '@/features/record/map-chips';
 import { RecordStatsList, RecordStatsRow } from '@/features/record/record-stats';
 import { RecorderStatusLine } from '@/features/record/recorder-status';
 import { useBatteryOptimization } from '@/features/record/use-battery-optimization';
+import { useHere } from '@/features/record/use-here';
 import { useLocationAccess } from '@/features/record/use-location-access';
 import { useNow } from '@/features/record/use-now';
 import { useSyncStatusStore } from '@/sync/sync-status-store';
@@ -105,12 +106,14 @@ export default function RecordScreen() {
     !showBatteryCard &&
     notifications.access === 'ask' &&
     !notificationsDismissed;
-  // Before Start and while recording the map follows the hiker; once
-  // finished it frames the whole track.
+  // Before Start and while recording the map shows where the hiker is and
+  // follows them; once finished it frames the whole track.
+  const here = useHere(!finished, access);
   const map = (
     <LiveTrackMap
       path={path}
       live={!finished}
+      here={here}
       style={layout === 'map' ? styles.fullMap : styles.miniMap}
       // The bottom panel overlaps the full map by 18.
       bottomInset={layout === 'map' ? SHEET_OVERLAP : 0}
