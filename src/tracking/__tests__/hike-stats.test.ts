@@ -8,6 +8,9 @@ import { addTrackPoints, type PathPoint } from '@/db/track-points';
 import { HIKE_STATS_CASES } from '../geo/hike-stats.cases';
 import { computeStats, computeTrack, EMPTY_STATS, refreshHikeStats } from '../hike-stats';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 // The sync script is plain Node; it tells whether the copy matches the API.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const sync = require('../../../scripts/sync-geo') as {
@@ -83,7 +86,7 @@ describe('refreshHikeStats', () => {
   it('recomputes from the saved points and stores them on the hike', async () => {
     const db = createTestDb();
     await prepareDatabase(db);
-    const { id } = await createHike(db);
+    const { id } = await createHike(db, USER);
     await addTrackPoints(db, id, [at(0, 0, 100), at(10, 10, 120), at(20, 20, 140)]);
 
     const { stats, path } = await refreshHikeStats(db, id);

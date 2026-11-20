@@ -5,6 +5,7 @@ import { getDb } from '@/db/database';
 import { getHike, type Hike, type HistoryHike, listFinishedHikes } from '@/db/hikes';
 import { getPostForHike } from '@/db/posts';
 import { getTrackPath, type PathPoint } from '@/db/track-points';
+import { useAuthStore } from '@/features/auth/auth-store';
 import { type SyncSnapshot, useSyncStatusStore } from '@/sync/sync-status-store';
 import { computeTrack } from '@/tracking/hike-stats';
 
@@ -56,25 +57,33 @@ export function useLoadWhileFocused(
 }
 
 /**
- * The hike history: every finished hike on this phone, newest first.
+ * The hike history: the signed-in account's finished hikes on this phone,
+ * newest first.
  * `hikes` is null until the first read finishes.
  */
 export function useHikeHistory(): { hikes: HistoryHike[] | null; failed: boolean } {
   const [hikes, setHikes] = useState<HistoryHike[] | null>(null);
   const [failed, setFailed] = useState(false);
 
+  // Only the signed-in account's hikes; others' stay on the phone, unseen.
+  const userId = useAuthStore((s) => s.user?.id);
+
   useLoadWhileFocused(
-    useCallback(async (isLatest) => {
-      try {
-        const list = await listFinishedHikes(await getDb());
-        if (!isLatest()) return;
-        setHikes(list);
-        setFailed(false);
-      } catch (error) {
-        if (isLatest()) setFailed(true);
-        throw error;
-      }
-    }, []),
+    useCallback(
+      async (isLatest) => {
+        if (!userId) return;
+        try {
+          const list = await listFinishedHikes(await getDb(), userId);
+          if (!isLatest()) return;
+          setHikes(list);
+          setFailed(false);
+        } catch (error) {
+          if (isLatest()) setFailed(true);
+          throw error;
+        }
+      },
+      [userId],
+    ),
   );
 
   return { hikes, failed };

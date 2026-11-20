@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { getDb } from '@/db/database';
 import { createHike, deleteHike, type HikeStatus, setHikeStatus, setHikeTitle } from '@/db/hikes';
+import { requireSignedInUserId, signedInUserId } from '@/features/auth/auth-store';
 import { queueFinishedHikes } from '@/sync/queue-hikes';
 import { requestSync } from '@/sync/sync';
 
@@ -117,8 +118,10 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
       if (status !== 'idle' || saving) return; // a hike is already on screen
       set({ saving: true });
       try {
+        const userId = signedInUserId();
+        if (!userId) return;
         const db = await getDb();
-        const hike = await findHikeToRestore(db);
+        const hike = await findHikeToRestore(db, userId);
         if (!hike) {
           await stopGpsQuietly(); // GPS left running with no hike to save to
           return;
@@ -160,7 +163,7 @@ export const useRecorderStore = create<RecorderState>()((set, get) => {
         // screen walks the user through granting it before Start is shown.
         await requireLocationAccess();
         const db = await getDb();
-        const hike = await createHike(db);
+        const hike = await createHike(db, requireSignedInUserId());
         try {
           await startLocationUpdates();
         } catch (error) {

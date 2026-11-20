@@ -6,6 +6,9 @@ import { resetFailedHikes, setSyncStatus } from '@/db/hikes';
 import { enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox';
 import { getSettings } from '@/db/settings';
 import type { Db } from '@/db/types';
+import { signedInUserId } from '@/features/auth/auth-store';
+
+import { claimHikes } from './claim-hikes';
 
 import { processOutbox, type UploadHandlers } from './process-outbox';
 import { loadSyncCounts, useSyncStatusStore } from './sync-status-store';
@@ -62,10 +65,31 @@ const SERVER_STATS_RECHECKS = 4;
 
 const showStatus = useSyncStatusStore.getState().update;
 
+/** Accounts whose older, ownerless hikes were already checked since the app started. */
+const claimedFor = new Set<string>();
+
+/**
+ * Once per account each time the app starts: gives hikes saved before the
+ * app recorded owners to this account, if the server says they're its own
+ * (see claimHikes). Never throws; a failure is tried again on the next run.
+ */
+async function claimOldHikes(userId: string): Promise<void> {
+  if (claimedFor.has(userId)) return;
+  try {
+    // History reloads by itself: the sync run that follows changes the status.
+    await claimHikes(await getDb(), userId);
+    claimedFor.add(userId);
+  } catch (error) {
+    console.warn('Could not check older hikes with the server', error);
+  }
+}
+
 /** Copies the upload counts to the status store. Never throws: it's only a display. */
 async function refreshStatus(): Promise<void> {
+  const userId = signedInUserId();
+  if (!userId) return;
   try {
-    showStatus(await loadSyncCounts(await getDb()));
+    showStatus(await loadSyncCounts(await getDb(), userId));
   } catch (error) {
     console.warn('Could not read the sync status', error);
   }
@@ -81,9 +105,9 @@ function clearRetryTimer(): void {
  * a failure only means the phone's estimate shows a little longer. Returns
  * whether some uploaded hikes are still waiting to be processed.
  */
-async function refreshServerStats(): Promise<boolean> {
+async function refreshServerStats(userId: string): Promise<boolean> {
   try {
-    const { updated, notReady } = await fetchServerStats(await getDb());
+    const { updated, notReady } = await fetchServerStats(await getDb(), userId);
     if (updated > 0) showStatus({ serverStatsAt: Date.now() });
     return notReady > 0;
   } catch (error) {
@@ -109,8 +133,9 @@ function scheduleServerStatsCheck(): void {
  */
 async function scheduleRetry(): Promise<void> {
   clearRetryTimer();
-  if (!started) return;
-  const next = await getNextAttemptAt(await getDb());
+  const userId = signedInUserId();
+  if (!started || !userId) return;
+  const next = await getNextAttemptAt(await getDb(), userId);
   // Nothing waiting, or only items no handler can upload yet (already due).
   if (next == null || next <= Date.now()) return;
   retryTimer = setTimeout(() => {
@@ -137,15 +162,19 @@ export function requestSync(): Promise<void> {
         const online = isOnline(state);
         showStatus({ online, unmetered: online && isUnmetered(state) });
         if (!online) return;
+        // Only the signed-in account's hikes and posts upload, as that account.
+        const userId = signedInUserId();
+        if (!userId) return;
+        await claimOldHikes(userId);
         await refreshStatus(); // show what's about to upload
         showStatus({ syncing: true });
-        const run = await processOutbox(await getDb(), HANDLERS);
+        const run = await processOutbox(await getDb(), userId, HANDLERS);
         if (__DEV__) console.info('Sync run', run);
         if (run.uploaded > 0) {
           showStatus({ lastUploadAt: Date.now() });
           serverStatsChecksLeft = SERVER_STATS_RECHECKS;
         }
-        if (await refreshServerStats()) scheduleServerStatsCheck();
+        if (await refreshServerStats(userId)) scheduleServerStatsCheck();
       } while (runAgain);
       await scheduleRetry();
     } catch (error) {
@@ -165,10 +194,12 @@ export function requestSync(): Promise<void> {
  * be rejected again; then it goes back to 'failed' and Retry shows again.
  */
 export async function retryUploads(): Promise<void> {
+  const userId = signedInUserId();
+  if (!userId) return;
   const db = await getDb();
-  await resetFailedHikes(db);
-  await enqueueUnsyncedHikes(db);
-  await makeAllDue(db);
+  await resetFailedHikes(db, userId);
+  await enqueueUnsyncedHikes(db, userId);
+  await makeAllDue(db, userId);
   await requestSync();
 }
 
@@ -178,10 +209,12 @@ export async function retryUploads(): Promise<void> {
  * reject it again, and then it goes back to 'failed'.
  */
 export async function retryHikeUpload(hikeId: string): Promise<void> {
+  const userId = signedInUserId();
+  if (!userId) return;
   const db = await getDb();
   await setSyncStatus(db, hikeId, 'pending');
   // Queues it with no wait (and any other hike whose queuing was missed).
-  await enqueueUnsyncedHikes(db);
+  await enqueueUnsyncedHikes(db, userId);
   await requestSync();
 }
 
@@ -191,8 +224,9 @@ export async function retryHikeUpload(hikeId: string): Promise<void> {
  * out its retry wait (up to an hour): make everything due and sync now.
  */
 async function syncAfterReconnect(): Promise<void> {
+  const userId = signedInUserId();
   try {
-    await makeAllDue(await getDb());
+    if (userId) await makeAllDue(await getDb(), userId);
   } catch (error) {
     console.warn('Could not cut the retry wait short', error);
   }

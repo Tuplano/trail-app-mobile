@@ -10,6 +10,9 @@ import { processOutbox } from '../process-outbox';
 import { FIRST_RETRY_MS } from '../retry';
 import { uploadHike } from '../upload-hike';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 /*
  * Task #35: the signal drops in the middle of an upload (airplane mode, a
  * tunnel, a dead zone on the trail). Afterwards the server must hold every
@@ -118,7 +121,7 @@ function connect(method: string) {
 async function phoneWithHike(): Promise<{ db: Db; hikeId: string }> {
   const db = createTestDb();
   await prepareDatabase(db);
-  const hike = await createHike(db, Date.UTC(2026, 10, 9, 6, 0, 0));
+  const hike = await createHike(db, USER, Date.UTC(2026, 10, 9, 6, 0, 0));
   const points = Array.from({ length: TOTAL }, (_, i) => ({
     recordedAt: hike.startedAt + i * 5000,
     lat: 16.5966 + i * 0.00002,
@@ -129,14 +132,14 @@ async function phoneWithHike(): Promise<{ db: Db; hikeId: string }> {
   }));
   await addTrackPoints(db, hike.id, points);
   await setHikeStatus(db, hike.id, 'finished', hike.startedAt + TOTAL * 5000);
-  await enqueueUnsyncedHikes(db, clock);
+  await enqueueUnsyncedHikes(db, USER, clock);
   return { db, hikeId: hike.id };
 }
 
 let clock: number;
-const sync = (db: Db) => processOutbox(db, { hike: uploadHike }, () => clock);
+const sync = (db: Db) => processOutbox(db, USER, { hike: uploadHike }, () => clock);
 /** The signal is back: sync.ts makes everything due at once, then syncs. */
-const reconnect = (db: Db) => makeAllDue(db, clock);
+const reconnect = (db: Db) => makeAllDue(db, USER, clock);
 
 /** The goal of #35: the server holds exactly the phone's points, each once, and the hike is done. */
 async function expectServerMatchesPhone(db: Db, hikeId: string) {
@@ -146,7 +149,7 @@ async function expectServerMatchesPhone(db: Db, hikeId: string) {
   for (const point of phonePoints) expect(server.points.get(point.seq)).toEqual(point);
   expect(server.finishedWith).toBe(TOTAL);
   expect((await getHike(db, hikeId))!.syncStatus).toBe('synced');
-  expect(await countPending(db)).toBe(0);
+  expect(await countPending(db, USER)).toBe(0);
 }
 
 /** The phone never sent the same point twice (beyond what the server ignores anyway). */
@@ -182,7 +185,7 @@ describe('signal lost in the middle of an upload (#35)', () => {
     expect((await getHike(db, hikeId))!.syncStatus).toBe('pending');
     expect(await countTrackPoints(db, hikeId)).toBe(TOTAL);
     // Left alone it would wait a minute before trying again…
-    expect(await getNextAttemptAt(db)).toBe(clock + FIRST_RETRY_MS);
+    expect(await getNextAttemptAt(db, USER)).toBe(clock + FIRST_RETRY_MS);
 
     // …but the signal coming back cuts that short.
     await reconnect(db);

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { getDb } from '@/db/database';
 import { listUnsentPosts, type UnsentPost } from '@/db/posts';
+import { useAuthStore } from '@/features/auth/auth-store';
 import { useLoadWhileFocused } from '@/features/history/use-hikes';
 
 /**
@@ -11,12 +12,17 @@ import { useLoadWhileFocused } from '@/features/history/use-hikes';
  */
 export function useUnsentPosts(): UnsentPost[] {
   const [posts, setPosts] = useState<UnsentPost[]>([]);
+  const userId = useAuthStore((s) => s.user?.id);
 
   useLoadWhileFocused(
-    useCallback(async (isLatest) => {
-      const list = await listUnsentPosts(await getDb());
-      if (isLatest()) setPosts(list);
-    }, []),
+    useCallback(
+      async (isLatest) => {
+        if (!userId) return;
+        const list = await listUnsentPosts(await getDb(), userId);
+        if (isLatest()) setPosts(list);
+      },
+      [userId],
+    ),
   );
 
   return posts;

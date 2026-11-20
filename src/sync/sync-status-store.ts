@@ -62,14 +62,15 @@ export const useSyncStatusStore = create<SyncStatusState>()((set) => ({
   update: (patch) => set(patch),
 }));
 
-/** Reads the hike upload counts from the database. */
+/** Reads the account's hike upload counts from the database. */
 export async function loadSyncCounts(
   db: Db,
+  userId: string,
   now: number = Date.now(),
 ): Promise<Pick<SyncSnapshot, 'waiting' | 'backingOff' | 'failed'>> {
   const [{ waiting, backingOff }, failed] = await Promise.all([
-    countWaiting(db, 'hike', now),
-    countFailedHikes(db),
+    countWaiting(db, userId, 'hike', now),
+    countFailedHikes(db, userId),
   ]);
   return { waiting, backingOff, failed };
 }

@@ -54,3 +54,19 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set({ status: 'signedOut', user: null, session: null });
   },
 }));
+
+/**
+ * The signed-in account's id, for code outside screens (sync, the recorder).
+ * Hikes and posts on the phone belong to an account, and everything reads or
+ * uploads only this one's. Null when signed out.
+ */
+export function signedInUserId(): string | null {
+  return useAuthStore.getState().user?.id ?? null;
+}
+
+/** Like signedInUserId(), for actions that only make sense signed in. */
+export function requireSignedInUserId(): string {
+  const id = signedInUserId();
+  if (!id) throw new Error('Not signed in');
+  return id;
+}

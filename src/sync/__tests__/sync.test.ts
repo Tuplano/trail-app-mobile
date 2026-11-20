@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { getDb } from '@/db/database';
 import { countFailedHikes, resetFailedHikes, setSyncStatus } from '@/db/hikes';
 import { countWaiting, enqueueUnsyncedHikes, getNextAttemptAt, makeAllDue } from '@/db/outbox';
+import { useAuthStore } from '@/features/auth/auth-store';
 
 import { processOutbox } from '../process-outbox';
 import {
@@ -34,6 +35,7 @@ jest.mock('@/db/outbox', () => ({
   makeAllDue: jest.fn(),
 }));
 jest.mock('../process-outbox', () => ({ processOutbox: jest.fn() }));
+jest.mock('../claim-hikes', () => ({ claimHikes: jest.fn(async () => 0) }));
 jest.mock('../upload-hike', () => ({ uploadHike: jest.fn() }));
 
 const netState = jest.mocked(Network.getNetworkStateAsync);
@@ -47,6 +49,8 @@ const status = () => useSyncStatusStore.getState();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Sync uploads the signed-in account's hikes and posts, as that account.
+  useAuthStore.setState({ status: 'signedIn', user: { id: 'user-1' } as never, session: null });
   netState.mockResolvedValue(online);
   process.mockResolvedValue({ uploaded: 0, failed: 0, gaveUp: 0, skipped: 0 });
   nextAttempt.mockResolvedValue(null);

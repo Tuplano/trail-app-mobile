@@ -113,6 +113,15 @@ export const MIGRATIONS: readonly string[] = [
   ALTER TABLE hikes ADD COLUMN stats_source TEXT NOT NULL DEFAULT 'phone'
     CHECK (stats_source IN ('phone', 'server'));
   `,
+
+  // 7: which account a hike belongs to (#13.1), so two accounts on one phone
+  // each see and upload only their own hikes. Posts, points and photos belong
+  // to a hike, so they follow it. NULL: saved before owners were recorded;
+  // claimHikes() gives those to their owner after asking the server.
+  `
+  ALTER TABLE hikes ADD COLUMN user_id TEXT;
+  CREATE INDEX hikes_by_user ON hikes (user_id, started_at DESC);
+  `,
 ];
 
 /** The schema version this build of the app expects. */

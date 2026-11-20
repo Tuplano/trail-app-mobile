@@ -10,6 +10,7 @@ import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { countNotUploaded } from '@/db/account-data';
 import { getDb } from '@/db/database';
+import { signedInUserId } from '@/features/auth/auth-store';
 import { deleteAccount } from '@/features/account/delete-account';
 import {
   deleteBlocker,
@@ -43,8 +44,10 @@ export default function DeleteAccountScreen() {
   useFocusEffect(
     useCallback(() => {
       let current = true;
+      const userId = signedInUserId();
+      if (!userId) return;
       getDb()
-        .then(countNotUploaded)
+        .then((db) => countNotUploaded(db, userId))
         .then((counts) => {
           if (current) setWarning(notUploadedWarning(counts));
         })

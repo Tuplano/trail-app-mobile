@@ -5,6 +5,9 @@ import { addTrackPoints } from '@/db/track-points';
 
 import { findHikeToRestore } from '../restore-recording';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
 }));
@@ -27,20 +30,20 @@ const point = (step: number, start = 1_000_000) => ({
 describe('findHikeToRestore', () => {
   it('is null when every hike is finished', async () => {
     const db = await freshDb();
-    expect(await findHikeToRestore(db)).toBeNull();
+    expect(await findHikeToRestore(db, USER)).toBeNull();
 
-    const { id } = await createHike(db);
+    const { id } = await createHike(db, USER);
     await setHikeStatus(db, id, 'finished');
-    expect(await findHikeToRestore(db)).toBeNull();
+    expect(await findHikeToRestore(db, USER)).toBeNull();
   });
 
   it('returns the unfinished hike with its path and stats', async () => {
     const db = await freshDb();
-    const { id, startedAt } = await createHike(db, 1_000_000);
+    const { id, startedAt } = await createHike(db, USER, 1_000_000);
     await addTrackPoints(db, id, [point(0), point(1), point(2)]);
     await setHikeStatus(db, id, 'paused');
 
-    const hike = await findHikeToRestore(db);
+    const hike = await findHikeToRestore(db, USER);
     expect(hike).toMatchObject({ id, status: 'paused', startedAt });
     expect(hike!.path).toHaveLength(3);
     expect(hike!.stats.pointCount).toBe(3);
@@ -49,18 +52,18 @@ describe('findHikeToRestore', () => {
 
   it('finishes older unfinished hikes left by crashes, ending at their last point', async () => {
     const db = await freshDb();
-    const oldWithPoints = await createHike(db, 1_000_000);
+    const oldWithPoints = await createHike(db, USER, 1_000_000);
     await addTrackPoints(db, oldWithPoints.id, [point(0), point(1)]);
-    const oldEmpty = await createHike(db, 2_000_000);
-    const newest = await createHike(db, 3_000_000);
+    const oldEmpty = await createHike(db, USER, 2_000_000);
+    const newest = await createHike(db, USER, 3_000_000);
 
-    expect((await findHikeToRestore(db))?.id).toBe(newest.id);
+    expect((await findHikeToRestore(db, USER))?.id).toBe(newest.id);
 
     expect(await getHike(db, oldWithPoints.id)).toMatchObject({
       status: 'finished',
       endedAt: point(1).recordedAt,
     });
     expect(await getHike(db, oldEmpty.id)).toMatchObject({ status: 'finished', endedAt: 2_000_000 });
-    expect((await getUnfinishedHikes(db)).map((h) => h.id)).toEqual([newest.id]);
+    expect((await getUnfinishedHikes(db, USER)).map((h) => h.id)).toEqual([newest.id]);
   });
 });

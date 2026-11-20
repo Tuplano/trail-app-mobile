@@ -13,6 +13,9 @@ import { processOutbox } from '../process-outbox';
 import { uploadHike } from '../upload-hike';
 import { uploadPost } from '../upload-post';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 /*
  * Task #41: a hike is finished and shared with no signal (on the trail, in
  * airplane mode). Once the phone is back online the post must reach the
@@ -137,7 +140,7 @@ function connect(method: string) {
 async function sharedOffline(): Promise<{ db: Db; hikeId: string; postId: string }> {
   const db = createTestDb();
   await prepareDatabase(db);
-  const hike = await createHike(db, clock);
+  const hike = await createHike(db, USER, clock);
   await addTrackPoints(
     db,
     hike.id,
@@ -151,7 +154,7 @@ async function sharedOffline(): Promise<{ db: Db; hikeId: string; postId: string
     })),
   );
   await setHikeStatus(db, hike.id, 'finished', clock + POINTS * 5000);
-  await enqueueUnsyncedHikes(db, clock);
+  await enqueueUnsyncedHikes(db, USER, clock);
   clock += 60_000; // the post is written a minute later
   const photo = (id: string) => ({
     id,
@@ -175,7 +178,7 @@ async function sharedOffline(): Promise<{ db: Db; hikeId: string; postId: string
 /** One sync run, as sync.ts does it. `wifi` says whether photos may upload now. */
 const sync = (db: Db, wifi = true) =>
   processOutbox(
-    db,
+    db, USER,
     { hike: uploadHike, post: (d, item) => uploadPost(d, item, async () => wifi) },
     () => clock,
   );
@@ -183,7 +186,7 @@ const sync = (db: Db, wifi = true) =>
 /** The signal is back: sync.ts makes everything due at once, then syncs. */
 const reconnect = async (db: Db) => {
   server.online = true;
-  await makeAllDue(db, clock);
+  await makeAllDue(db, USER, clock);
 };
 
 /** What the feed would list: the server's posts, newest first, as ids. */
@@ -198,8 +201,8 @@ async function expectPostedOnce(db: Db, postId: string, hikeId: string) {
   expect(server.posts.get(postId)!.photoKeys).toHaveLength(2);
   expect((await getHike(db, hikeId))!.syncStatus).toBe('synced');
   expect((await getPost(db, postId))!.syncStatus).toBe('synced');
-  expect(await listUnsentPosts(db)).toEqual([]);
-  expect(await countPending(db)).toBe(0);
+  expect(await listUnsentPosts(db, USER)).toEqual([]);
+  expect(await countPending(db, USER)).toBe(0);
 }
 
 beforeEach(() => {
@@ -234,7 +237,7 @@ describe('a post made offline (#41)', () => {
     await sync(db);
 
     expect(server.posts.size).toBe(0);
-    const unsent = await listUnsentPosts(db);
+    const unsent = await listUnsentPosts(db, USER);
     expect(unsent.map((p) => p.id)).toEqual([postId]);
     expect(unsent[0]).toMatchObject({ caption: 'Summit at dawn', syncStatus: 'pending' });
     expect(unsent[0].photoUris).toHaveLength(2); // the phone's copies, shown on the card
@@ -280,9 +283,9 @@ describe('a post made offline (#41)', () => {
     await sync(db);
     // On the server, but the phone doesn't know: it still shows it as queued…
     expect([...server.posts.keys()]).toEqual([postId]);
-    expect((await listUnsentPosts(db)).map((p) => p.id)).toEqual([postId]);
+    expect((await listUnsentPosts(db, USER)).map((p) => p.id)).toEqual([postId]);
     // …while the feed already has it: the queued copy must not show twice.
-    const unsent = await listUnsentPosts(db);
+    const unsent = await listUnsentPosts(db, USER);
     expect(unsentNotInFeed(unsent, feedIds())).toEqual([]);
 
     clock += 1000;

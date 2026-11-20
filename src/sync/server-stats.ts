@@ -26,19 +26,22 @@ export function serverStatsOf(hike: ServerHike): ServerStats | null {
 }
 
 /**
- * For uploaded hikes still showing the phone's estimate, asks the server for
- * its final numbers and saves them on the phone, so the history and the hike
- * screen show them, offline too.
+ * For the account's uploaded hikes still showing the phone's estimate, asks
+ * the server for its final numbers and saves them on the phone, so the
+ * history and the hike screen show them, offline too.
  *
  * Returns how many hikes got their final numbers, and how many the server
  * hasn't processed yet (worth asking again shortly). A hike the server
  * doesn't know (deleted there) is skipped. Throws on a network failure; the
  * next sync run asks again.
  */
-export async function fetchServerStats(db: Db): Promise<{ updated: number; notReady: number }> {
+export async function fetchServerStats(
+  db: Db,
+  userId: string,
+): Promise<{ updated: number; notReady: number }> {
   let updated = 0;
   let notReady = 0;
-  for (const id of await listHikesAwaitingServerStats(db)) {
+  for (const id of await listHikesAwaitingServerStats(db, userId)) {
     const { data, error, response } = await api.GET('/api/v1/hikes/{id}', {
       params: { path: { id } },
     });

@@ -4,6 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { getDb } from '@/db/database';
 import { createImportedHike, findOverlappingHike, type ImportedHikeInput } from '@/db/hikes';
 import { uuidv7 } from '@/db/ids';
+import { requireSignedInUserId } from '@/features/auth/auth-store';
 import { formatHikeDate, hikeTitle } from '@/features/history/hike-summary';
 import { queueFinishedHikes } from '@/sync/queue-hikes';
 import { requestSync } from '@/sync/sync';
@@ -26,6 +27,7 @@ export function toImportedHike(
   track: ImportableTrack,
   id: string,
   fileUri: string,
+  userId: string,
 ): ImportedHikeInput {
   const points = track.points.map((p) => ({
     recordedAt: p.recordedAt,
@@ -35,6 +37,7 @@ export function toImportedHike(
   }));
   return {
     id,
+    userId,
     title: track.name?.trim() || null,
     startedAt: track.startedAt,
     endedAt: track.endedAt,
@@ -91,7 +94,8 @@ async function importPicked(
   }
 
   const db = await getDb();
-  const overlap = await findOverlappingHike(db, track.startedAt, track.endedAt);
+  const userId = requireSignedInUserId();
+  const overlap = await findOverlappingHike(db, userId, track.startedAt, track.endedAt);
   if (overlap) {
     return {
       kind: 'problem',
@@ -103,7 +107,7 @@ async function importPicked(
   const copy = new File(importsFolder(), `${id}.gpx`);
   await source.copy(copy);
   try {
-    await createImportedHike(db, toImportedHike(track, id, copy.uri));
+    await createImportedHike(db, toImportedHike(track, id, copy.uri, userId));
   } catch (error) {
     deleteImportFile(copy.uri);
     throw error;

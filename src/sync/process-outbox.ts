@@ -19,13 +19,14 @@ const BATCH = 20;
 export type OutboxRun = { uploaded: number; failed: number; gaveUp: number; skipped: number };
 
 /**
- * Works once through the outbox items that are due: each one goes to the
+ * Works once through the account's outbox items that are due: each one goes to the
  * handler for its kind. Success removes it; a failure schedules a retry,
  * waiting longer after each failure (see retryDelayMs); giving up removes it.
  * One failure doesn't stop the rest (a bad item mustn't block good ones).
  */
 export async function processOutbox(
   db: Db,
+  userId: string,
   handlers: UploadHandlers,
   now: () => number = Date.now,
 ): Promise<OutboxRun> {
@@ -34,7 +35,7 @@ export async function processOutbox(
 
   // Items without a handler stay due, so page past them instead of re-reading them.
   for (;;) {
-    const items = (await getDueItems(db, now(), BATCH + seen.size)).filter((i) => !seen.has(i.id));
+    const items = (await getDueItems(db, userId, now(), BATCH + seen.size)).filter((i) => !seen.has(i.id));
     if (items.length === 0) return run;
 
     for (const item of items) {

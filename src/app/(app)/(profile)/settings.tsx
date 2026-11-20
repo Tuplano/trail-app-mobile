@@ -9,12 +9,14 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { Toggle } from '@/components/ui/toggle';
 import { signOut } from '@/features/auth/auth-api';
+import { signOutBlocker } from '@/features/auth/sign-out-rules';
 import { usePrivacyZones } from '@/features/privacy-zones/privacy-zones-api';
 import { useBatteryOptimization } from '@/features/record/use-battery-optimization';
 import { SegmentRow } from '@/features/settings/segment-row';
 import { SettingsRow } from '@/features/settings/settings-row';
 import { useSettingsStore } from '@/features/settings/settings-store';
 import { openBatterySettings } from '@/tracking/battery-optimization';
+import { useRecorderStore } from '@/tracking/recorder-store';
 import { fonts, radius } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
 
@@ -30,6 +32,7 @@ export default function SettingsScreen() {
   const batteryOptimized = useBatteryOptimization();
   const { data: zones } = usePrivacyZones();
   const [error, setError] = useState<string | null>(null);
+  const signOutBlocked = signOutBlocker(useRecorderStore((s) => s.status));
 
   const toggleWifiOnly = () => {
     setError(null);
@@ -111,7 +114,13 @@ export default function SettingsScreen() {
             onPress={openBattery}
           />
         )}
-        <SettingsRow icon={SignOut} label="Sign out" onPress={signOut} />
+        <SettingsRow
+          icon={SignOut}
+          label="Sign out"
+          detail={signOutBlocked ?? undefined}
+          disabled={signOutBlocked !== null}
+          onPress={signOut}
+        />
         <SettingsRow
           icon={Trash}
           label="Delete account"

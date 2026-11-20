@@ -12,6 +12,9 @@ import {
 } from '../posts';
 import { createTestDb } from './test-db';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) =>
     new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
@@ -20,7 +23,7 @@ jest.mock('expo-crypto', () => ({
 async function dbWithHike() {
   const db = createTestDb();
   await prepareDatabase(db);
-  const hike = await createHike(db, 1000);
+  const hike = await createHike(db, USER, 1000);
   return { db, hikeId: hike.id };
 }
 
@@ -52,7 +55,7 @@ describe('createPost', () => {
         { ...photo('p2'), position: 1, uploadKey: null },
       ],
     });
-    expect(await getDueItems(db, 5000)).toEqual([
+    expect(await getDueItems(db, USER, 5000)).toEqual([
       expect.objectContaining({ kind: 'post', entityId: id }),
     ]);
   });
@@ -79,7 +82,7 @@ describe('createPost', () => {
 
     expect((await getHike(db, hikeId))!.visibility).toBe('public');
     expect(await db.getAllAsync('SELECT id FROM post_photos')).toEqual([]);
-    expect(await getDueItems(db, Date.now() + 1)).toHaveLength(1);
+    expect(await getDueItems(db, USER, Date.now() + 1)).toHaveLength(1);
   });
 
   it("fails for a hike that isn't on the phone", async () => {
@@ -137,8 +140,8 @@ describe('a post after it is saved', () => {
 describe('listUnsentPosts', () => {
   it('lists posts not on the server yet, newest first, with their hike and photos', async () => {
     const { db, hikeId } = await dbWithHike();
-    const other = await createHike(db, 2000);
-    const sent = await createHike(db, 3000);
+    const other = await createHike(db, USER, 2000);
+    const sent = await createHike(db, USER, 3000);
     const older = await createPost(
       db,
       { hikeId, caption: 'First', visibility: 'public', photos: [photo('p1'), photo('p2')] },
@@ -157,7 +160,7 @@ describe('listUnsentPosts', () => {
     await setPostSyncStatus(db, done, 'synced');
     await setPostSyncStatus(db, newer, 'failed');
 
-    const unsent = await listUnsentPosts(db);
+    const unsent = await listUnsentPosts(db, USER);
 
     expect(unsent.map((p) => [p.id, p.syncStatus])).toEqual([
       [newer, 'failed'],
@@ -180,10 +183,10 @@ describe('listUnsentPosts', () => {
       5000,
     );
     await setPhotoUploadKey(db, 'p1', 'uploads/me/1');
-    const [item] = await getDueItems(db, 5000);
+    const [item] = await getDueItems(db, USER, 5000);
     await markFailed(db, item.id, 'Network request failed', 65_000);
 
-    expect(await listUnsentPosts(db)).toEqual([
+    expect(await listUnsentPosts(db, USER)).toEqual([
       expect.objectContaining({ id, photosToUpload: 1, failedTries: 1 }),
     ]);
   });

@@ -8,6 +8,9 @@ import type { Db } from '@/db/types';
 
 import { saveLocations, toTrackPoint } from '../save-locations';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 /** How many points a call saved. */
 const saved = async (db: Db, locations: LocationObject[]) =>
   (await saveLocations(db, locations)).saved;
@@ -72,7 +75,7 @@ describe('toTrackPoint', () => {
 describe('saveLocations', () => {
   it("saves each fix with the barometer's air pressure, when one was read near it", async () => {
     const db = await freshDb();
-    const { id } = await createHike(db, 500);
+    const { id } = await createHike(db, USER, 500);
     // Readings stopped after 3 s (e.g. the sensor paused): later fixes get none.
     const readings = [
       { at: 1000, hPa: 900.4 },
@@ -87,7 +90,7 @@ describe('saveLocations', () => {
 
   it('saves fixes to the recording hike, oldest first', async () => {
     const db = await freshDb();
-    const { id } = await createHike(db, 500);
+    const { id } = await createHike(db, USER, 500);
 
     // The OS can deliver a batch out of order.
     expect(await saved(db, [fix(3000), fix(1000), fix(2000)])).toBe(3);
@@ -106,7 +109,7 @@ describe('saveLocations', () => {
     const db = await freshDb();
     expect(await saved(db, [fix(1000)])).toBe(0);
 
-    const { id } = await createHike(db, 500);
+    const { id } = await createHike(db, USER, 500);
     await setHikeStatus(db, id, 'paused');
     expect(await saved(db, [fix(2000)])).toBe(0);
     expect(await getTrackPoints(db, id)).toEqual([]);
@@ -114,7 +117,7 @@ describe('saveLocations', () => {
 
   it('drops stale fixes from before the hike started', async () => {
     const db = await freshDb();
-    const { id } = await createHike(db, 10_000);
+    const { id } = await createHike(db, USER, 10_000);
 
     // Android's "last known position", 9 minutes old, arrives with a fresh fix.
     expect(await saved(db, [fix(10_000 - 9 * 60_000), fix(12_000)])).toBe(1);
@@ -126,7 +129,7 @@ describe('saveLocations', () => {
 
   it('saves every fix, and leaves wobble and bad fixes to the shared rules', async () => {
     const db = await freshDb();
-    const { id } = await createHike(db, 500);
+    const { id } = await createHike(db, USER, 500);
 
     // Standing still, then an inaccurate fix: all saved, none adds distance.
     const standingStill = (t: number) => fix(t, { latitude: 14.6, longitude: 121.0 });
@@ -140,7 +143,7 @@ describe('saveLocations', () => {
 
   it("doesn't save a fix twice, or one older than the last saved", async () => {
     const db = await freshDb();
-    const { id } = await createHike(db, 500);
+    const { id } = await createHike(db, USER, 500);
 
     expect(await saved(db, [fix(1000), fix(2000)])).toBe(2);
     expect(await saved(db, [fix(2000), fix(1500), fix(3000)])).toBe(1);
@@ -149,7 +152,7 @@ describe('saveLocations', () => {
 
   it("updates the hike's stats with each saved batch", async () => {
     const db = await freshDb();
-    const { id } = await createHike(db, 500);
+    const { id } = await createHike(db, USER, 500);
 
     // 10 s apart: ~11 m each, a walking pace.
     const first = await saveLocations(db, [fix(10_000), fix(20_000)]);
@@ -169,7 +172,7 @@ describe('saveLocations', () => {
 
   it('does nothing for an empty batch', async () => {
     const db = await freshDb();
-    await createHike(db);
+    await createHike(db, USER);
     expect(await saved(db, [])).toBe(0);
   });
 });

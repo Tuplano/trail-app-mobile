@@ -44,6 +44,21 @@ function toItem(row: OutboxRow): OutboxItem {
 }
 
 /**
+ * "This outbox row belongs to the account given as the next `?` parameter":
+ * a 'hike' item's hike, or a 'post' item's post's hike, has that owner. The
+ * owner lives on the hike only, so it can't disagree between tables. Other
+ * accounts' items stay queued, untouched, until their owner signs in again.
+ */
+export const OWNED_BY = `EXISTS (
+  SELECT 1 FROM hikes h
+  WHERE h.user_id = ?
+    AND h.id = CASE outbox.kind
+      WHEN 'hike' THEN outbox.entity_id
+      ELSE (SELECT p.hike_id FROM posts p WHERE p.id = outbox.entity_id)
+    END
+)`;
+
+/**
  * Queues something for upload, due at once. Queuing the same thing twice does
  * nothing (the table allows each kind + id once), so callers needn't check,
  * and an item that is backing off after a failure keeps its retry time.
@@ -62,53 +77,67 @@ export async function enqueue(
 }
 
 /**
- * Queues every finished hike that still needs uploading: not uploaded yet
- * ('pending', or 'syncing' if the app stopped mid-upload), not given up on
- * ('failed'), and with at least one GPS point (an empty hike has nothing worth
- * sending). Returns how many were newly queued.
+ * Queues every finished hike of the account that still needs uploading: not
+ * uploaded yet ('pending', or 'syncing' if the app stopped mid-upload), not
+ * given up on ('failed'), and with at least one GPS point (an empty hike has
+ * nothing worth sending). Returns how many were newly queued.
  *
  * Run after finishing a hike and when the app opens. The second run catches
  * hikes whose queuing was missed, e.g. the app crashed right after Finish.
  */
-export async function enqueueUnsyncedHikes(db: Db, now: number = Date.now()): Promise<number> {
+export async function enqueueUnsyncedHikes(
+  db: Db,
+  userId: string,
+  now: number = Date.now(),
+): Promise<number> {
   const result = await db.runAsync(
     `INSERT OR IGNORE INTO outbox (kind, entity_id, next_attempt_at, created_at)
      SELECT 'hike', h.id, ?, ?
      FROM hikes h
-     WHERE h.status = 'finished'
+     WHERE h.user_id = ?
+       AND h.status = 'finished'
        AND h.sync_status IN ('pending', 'syncing')
        AND EXISTS (SELECT 1 FROM track_points p WHERE p.hike_id = h.id)
      ORDER BY h.started_at`,
-    [now, now],
+    [now, now, userId],
   );
   return result.changes;
 }
 
-/** Items whose time has come, oldest due first. Sync works through these. */
+/**
+ * The account's items whose time has come, oldest due first. Sync works
+ * through these, signed in as that account, so nothing of another account is
+ * ever uploaded to it.
+ */
 export async function getDueItems(
   db: Db,
+  userId: string,
   now: number = Date.now(),
   limit = 20,
 ): Promise<OutboxItem[]> {
   const rows = await db.getAllAsync<OutboxRow>(
-    `SELECT * FROM outbox WHERE next_attempt_at <= ?
+    `SELECT * FROM outbox WHERE next_attempt_at <= ? AND ${OWNED_BY}
      ORDER BY next_attempt_at, id LIMIT ?`,
-    [now, limit],
+    [now, userId, limit],
   );
   return rows.map(toItem);
 }
 
-/** When the soonest waiting item is next due, or null if the queue is empty. */
-export async function getNextAttemptAt(db: Db): Promise<number | null> {
+/** When the account's soonest waiting item is next due, or null if it has none. */
+export async function getNextAttemptAt(db: Db, userId: string): Promise<number | null> {
   const row = await db.getFirstAsync<{ next: number | null }>(
-    'SELECT MIN(next_attempt_at) AS next FROM outbox',
+    `SELECT MIN(next_attempt_at) AS next FROM outbox WHERE ${OWNED_BY}`,
+    [userId],
   );
   return row?.next ?? null;
 }
 
-/** Everything still waiting, due or not. For the sync status indicator. */
-export async function countPending(db: Db): Promise<number> {
-  const row = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM outbox');
+/** Everything of the account still waiting, due or not. */
+export async function countPending(db: Db, userId: string): Promise<number> {
+  const row = await db.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM outbox WHERE ${OWNED_BY}`,
+    [userId],
+  );
   return row?.n ?? 0;
 }
 
@@ -120,26 +149,30 @@ export async function countPending(db: Db): Promise<number> {
  */
 export async function countWaiting(
   db: Db,
+  userId: string,
   kind: OutboxKind,
   now: number = Date.now(),
 ): Promise<{ waiting: number; backingOff: number }> {
   const row = await db.getFirstAsync<{ waiting: number; backing_off: number }>(
     `SELECT COUNT(*) AS waiting,
             COALESCE(SUM(attempts > 0 AND next_attempt_at > ?), 0) AS backing_off
-     FROM outbox WHERE kind = ?`,
-    [now, kind],
+     FROM outbox WHERE kind = ? AND ${OWNED_BY}`,
+    [now, kind, userId],
   );
   return { waiting: row?.waiting ?? 0, backingOff: row?.backing_off ?? 0 };
 }
 
 /**
- * Makes every waiting item due now, cutting short any backoff wait. For the
- * Retry button: the hiker asked to try again, so don't make them wait up to
- * an hour. The attempt count is kept, so if it fails again the next wait is
- * as long as it would have been.
+ * Makes every waiting item of the account due now, cutting short any backoff
+ * wait. For the Retry button: the hiker asked to try again, so don't make
+ * them wait up to an hour. The attempt count is kept, so if it fails again
+ * the next wait is as long as it would have been.
  */
-export async function makeAllDue(db: Db, now: number = Date.now()): Promise<void> {
-  await db.runAsync('UPDATE outbox SET next_attempt_at = ? WHERE next_attempt_at > ?', [now, now]);
+export async function makeAllDue(db: Db, userId: string, now: number = Date.now()): Promise<void> {
+  await db.runAsync(
+    `UPDATE outbox SET next_attempt_at = ? WHERE next_attempt_at > ? AND ${OWNED_BY}`,
+    [now, now, userId],
+  );
 }
 
 /** Uploaded: the item leaves the queue. */

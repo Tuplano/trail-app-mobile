@@ -14,15 +14,18 @@ export type HikeToRestore = {
 };
 
 /**
- * After the app restarts, finds the hike that was being recorded when it
+ * After the app restarts, finds the account's hike that was being recorded when it
  * stopped, so the recorder can pick it back up. Null when there is none.
  *
  * Only the newest unfinished hike is resumed. Older ones (left behind by
  * crashes) are finished, ending at their last saved point, so there is never
  * more than one hike in progress.
  */
-export async function findHikeToRestore(db: Db): Promise<HikeToRestore | null> {
-  const [current, ...stale] = await getUnfinishedHikes(db);
+export async function findHikeToRestore(
+  db: Db,
+  userId: string,
+): Promise<HikeToRestore | null> {
+  const [current, ...stale] = await getUnfinishedHikes(db, userId);
   for (const hike of stale) {
     const last = await getLastTrackPoint(db, hike.id);
     await setHikeStatus(db, hike.id, 'finished', last?.recordedAt ?? hike.startedAt);

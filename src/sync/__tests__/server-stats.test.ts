@@ -6,6 +6,9 @@ import type { Db } from '@/db/types';
 
 import { fetchServerStats, serverStatsOf } from '../server-stats';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
 }));
@@ -20,7 +23,7 @@ const PROCESSED = { status: 'processed', distanceM: 5120, movingTimeS: 5400, ele
 
 /** A finished, uploaded hike showing the phone's estimate. */
 async function uploadedHike(db: Db, startedAt = 1000) {
-  const { id } = await createHike(db, startedAt);
+  const { id } = await createHike(db, USER, startedAt);
   await setHikeStatus(db, id, 'finished', startedAt + 1000);
   await setSyncStatus(db, id, 'synced');
   return id;
@@ -58,12 +61,12 @@ describe('fetchServerStats', () => {
     const id = await uploadedHike(db);
     get.mockResolvedValue(answer(200, PROCESSED));
 
-    expect(await fetchServerStats(db)).toEqual({ updated: 1, notReady: 0 });
+    expect(await fetchServerStats(db, USER)).toEqual({ updated: 1, notReady: 0 });
     expect(get).toHaveBeenCalledWith('/api/v1/hikes/{id}', { params: { path: { id } } });
     expect(await getHike(db, id)).toMatchObject({ distanceM: 5120, statsSource: 'server' });
 
     // Done: it isn't asked about again.
-    await fetchServerStats(db);
+    await fetchServerStats(db, USER);
     expect(get).toHaveBeenCalledTimes(1);
   });
 
@@ -72,7 +75,7 @@ describe('fetchServerStats', () => {
     const id = await uploadedHike(db);
     get.mockResolvedValue(answer(200, { ...PROCESSED, status: 'finished' }));
 
-    expect(await fetchServerStats(db)).toEqual({ updated: 0, notReady: 1 });
+    expect(await fetchServerStats(db, USER)).toEqual({ updated: 0, notReady: 1 });
     expect((await getHike(db, id))!.statsSource).toBe('phone');
   });
 
@@ -83,7 +86,7 @@ describe('fetchServerStats', () => {
     get.mockImplementation((async (_path: string, init: { params: { path: { id: string } } }) =>
       init.params.path.id === newer ? answer(404) : answer(200, PROCESSED)) as never);
 
-    expect(await fetchServerStats(db)).toEqual({ updated: 1, notReady: 0 });
+    expect(await fetchServerStats(db, USER)).toEqual({ updated: 1, notReady: 0 });
   });
 
   it('stops at a server error, to try again on the next sync', async () => {
@@ -91,7 +94,7 @@ describe('fetchServerStats', () => {
     const id = await uploadedHike(db);
     get.mockResolvedValue(answer(503));
 
-    await expect(fetchServerStats(db)).rejects.toThrow();
+    await expect(fetchServerStats(db, USER)).rejects.toThrow();
     expect((await getHike(db, id))!.statsSource).toBe('phone');
   });
 });

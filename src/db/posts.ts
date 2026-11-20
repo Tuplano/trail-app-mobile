@@ -167,8 +167,11 @@ export type UnsentPost = {
   failedTries: number;
 };
 
-/** Posts not on the server yet (waiting, uploading or refused), newest first. */
-export async function listUnsentPosts(db: Db): Promise<UnsentPost[]> {
+/**
+ * The account's posts not on the server yet (waiting, uploading or refused),
+ * newest first. A post belongs to whoever owns its hike.
+ */
+export async function listUnsentPosts(db: Db, userId: string): Promise<UnsentPost[]> {
   const rows = await db.getAllAsync<
     PostRow & {
       title: string | null;
@@ -183,8 +186,9 @@ export async function listUnsentPosts(db: Db): Promise<UnsentPost[]> {
        o.attempts AS failed_tries
      FROM posts p JOIN hikes h ON h.id = p.hike_id
      LEFT JOIN outbox o ON o.kind = 'post' AND o.entity_id = p.id
-     WHERE p.sync_status != 'synced'
+     WHERE h.user_id = ? AND p.sync_status != 'synced'
      ORDER BY p.created_at DESC`,
+    [userId],
   );
   const photos = await db.getAllAsync<{
     post_id: string;

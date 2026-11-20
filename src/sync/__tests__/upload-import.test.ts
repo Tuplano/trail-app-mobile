@@ -6,6 +6,9 @@ import { createTestDb } from '@/db/__tests__/test-db';
 import { GiveUpError } from '../retry';
 import { type SendImport, uploadImportedHike } from '../upload-import';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 // The real request needs the phone's file system and session; these tests pass a fake one.
 jest.mock('expo-file-system', () => ({ File: jest.fn() }));
 jest.mock('@/features/auth/auth-store', () => ({ useAuthStore: { getState: () => ({}) } }));
@@ -19,6 +22,7 @@ async function importedHike() {
   await prepareDatabase(db);
   const hike = await createImportedHike(db, {
     id: 'imported-1',
+    userId: USER,
     title: 'Mt. Pulag',
     startedAt: 1000,
     endedAt: 61_000,

@@ -9,6 +9,9 @@ import { addTrackPoints } from '@/db/track-points';
 import { GiveUpError } from '../retry';
 import { POINTS_PER_CHUNK, toUpsertBody, uploadHike } from '../upload-hike';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
 }));
@@ -45,7 +48,7 @@ const finishCalls = () => postCalls().filter(([path]) => path === '/api/v1/hikes
 async function finishedHike(pointCount: number) {
   const db = createTestDb();
   await prepareDatabase(db);
-  const hike = await createHike(db, Date.UTC(2026, 10, 9, 6, 0, 0));
+  const hike = await createHike(db, USER, Date.UTC(2026, 10, 9, 6, 0, 0));
   const points = Array.from({ length: pointCount }, (_, i) => ({
     recordedAt: hike.startedAt + i * 5000,
     lat: 14.6 + i * 0.0001,

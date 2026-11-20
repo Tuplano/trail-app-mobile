@@ -9,6 +9,9 @@ import {
 } from '../track-points';
 import type { Db } from '../types';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 // expo-crypto is native; Node's crypto gives the same random bytes in tests.
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) => new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
@@ -33,10 +36,11 @@ const fix = (i: number): NewTrackPoint => ({
 describe('createHike', () => {
   it('saves a recording hike with a UUIDv7 id and empty stats', async () => {
     const db = await freshDb();
-    const hike = await createHike(db, 1_700_000_000_000);
+    const hike = await createHike(db, USER, 1_700_000_000_000);
 
     expect(hike).toEqual({
       id: expect.stringMatching(/^[0-9a-f-]{14}7/),
+      userId: USER, // the account that started it
       title: null,
       status: 'recording',
       startedAt: 1_700_000_000_000,
@@ -63,7 +67,7 @@ describe('createHike', () => {
 describe('addTrackPoints', () => {
   it('numbers points from 0 and continues where the last batch ended', async () => {
     const db = await freshDb();
-    const { id } = await createHike(db);
+    const { id } = await createHike(db, USER);
 
     await addTrackPoints(db, id, [fix(0), fix(1)]);
     await addTrackPoints(db, id, [fix(2)]);
@@ -75,7 +79,7 @@ describe('addTrackPoints', () => {
 
   it('returns points in the API upload shape, with missing readings as null', async () => {
     const db = await freshDb();
-    const { id } = await createHike(db);
+    const { id } = await createHike(db, USER);
     await addTrackPoints(db, id, [{ recordedAt: 5, lat: 1, lng: 2 }]);
 
     expect(await getTrackPoints(db, id)).toEqual([
@@ -94,8 +98,8 @@ describe('addTrackPoints', () => {
 
   it('keeps each hike’s numbering separate', async () => {
     const db = await freshDb();
-    const a = await createHike(db, 1);
-    const b = await createHike(db, 2);
+    const a = await createHike(db, USER, 1);
+    const b = await createHike(db, USER, 2);
     await addTrackPoints(db, a.id, [fix(0), fix(1)]);
     await addTrackPoints(db, b.id, [fix(0)]);
 
@@ -104,7 +108,7 @@ describe('addTrackPoints', () => {
 
   it('saves nothing from a batch with a bad point', async () => {
     const db = await freshDb();
-    const { id } = await createHike(db);
+    const { id } = await createHike(db, USER);
     await expect(addTrackPoints(db, id, [fix(0), { ...fix(1), lat: 200 }])).rejects.toThrow(
       /CHECK/,
     );
@@ -113,7 +117,7 @@ describe('addTrackPoints', () => {
 
   it('handles more points than fit in one INSERT', async () => {
     const db = await freshDb();
-    const { id } = await createHike(db);
+    const { id } = await createHike(db, USER);
     await addTrackPoints(db, id, Array.from({ length: 1201 }, (_, i) => fix(i)));
 
     const page = await getTrackPoints(db, id, 1000, 500);
@@ -124,7 +128,7 @@ describe('addTrackPoints', () => {
 describe('getLastTrackPoint', () => {
   it('is the newest point, or null for a hike without points', async () => {
     const db = await freshDb();
-    const { id } = await createHike(db);
+    const { id } = await createHike(db, USER);
     expect(await getLastTrackPoint(db, id)).toBeNull();
 
     await addTrackPoints(db, id, [fix(0), fix(1), fix(2)]);

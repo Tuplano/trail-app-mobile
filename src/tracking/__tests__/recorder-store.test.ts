@@ -4,6 +4,7 @@ import { createTestDb } from '@/db/__tests__/test-db';
 import { getDueItems } from '@/db/outbox';
 import { addTrackPoints } from '@/db/track-points';
 import type { Db } from '@/db/types';
+import { useAuthStore } from '@/features/auth/auth-store';
 import { requestSync } from '@/sync/sync';
 
 import { EMPTY_STATS } from '../hike-stats';
@@ -11,6 +12,9 @@ import { useLiveTrackStore } from '../live-track-store';
 import { LocationPermissionError, requireLocationAccess } from '../location-permission';
 import { ensureLocationUpdates, startLocationUpdates, stopLocationUpdates } from '../location-task';
 import { canTransition, useRecorderStore } from '../recorder-store';
+
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
 
 // The recorder saves to a real in-memory SQLite database (see db/__tests__/test-db.ts).
 let mockDb: Promise<Db>;
@@ -42,6 +46,8 @@ const recorder = () => useRecorderStore.getState();
 beforeEach(() => {
   jest.resetAllMocks();
   useRecorderStore.setState(initialState, true);
+  // Hikes belong to the signed-in account.
+  useAuthStore.setState({ status: 'signedIn', user: { id: USER } as never, session: null });
   mockDb = (async () => {
     const db = createTestDb();
     await prepareDatabase(db);
@@ -178,7 +184,7 @@ describe('restoring after the app restarts', () => {
   /** A hike left in the database by an app that was killed mid-hike. */
   async function leftBehind(status: 'recording' | 'paused') {
     const db = await mockDb;
-    const hike = await createHike(db, 1_000_000);
+    const hike = await createHike(db, USER, 1_000_000);
     await addTrackPoints(db, hike.id, [
       { recordedAt: 1_000_000, lat: 14.6, lng: 121.0, altitudeM: 100 },
       { recordedAt: 1_010_000, lat: 14.6001, lng: 121.0, altitudeM: 100 },
@@ -257,11 +263,11 @@ describe('finishing: save or discard', () => {
 
   it('waits for Save before queuing the upload', async () => {
     const { db, hikeId } = await finishedHike();
-    expect(await getDueItems(db)).toEqual([]); // finished, but not queued yet
+    expect(await getDueItems(db, USER)).toEqual([]); // finished, but not queued yet
     expect(requestSync).not.toHaveBeenCalled();
 
     await recorder().save('Ridge loop');
-    expect((await getDueItems(db)).map((i) => i.entityId)).toEqual([hikeId]);
+    expect((await getDueItems(db, USER)).map((i) => i.entityId)).toEqual([hikeId]);
     expect(requestSync).toHaveBeenCalled(); // and asks to upload it right away
   });
 
@@ -276,7 +282,7 @@ describe('finishing: save or discard', () => {
     await recorder().discard();
     expect(recorder()).toMatchObject({ status: 'idle', hikeId: null });
     expect(await getHike(db, hikeId)).toBeNull();
-    expect(await getDueItems(db)).toEqual([]);
+    expect(await getDueItems(db, USER)).toEqual([]);
     expect(useLiveTrackStore.getState()).toMatchObject({ stats: EMPTY_STATS, path: [] });
   });
 });

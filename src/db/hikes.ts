@@ -14,6 +14,8 @@ export type StatsSource = 'phone' | 'server';
 /** A hike as stored on the phone. Times are epoch milliseconds. */
 export type Hike = {
   id: string;
+  /** The account it belongs to; null if saved before the app recorded owners. */
+  userId: string | null;
   title: string | null;
   status: HikeStatus;
   startedAt: number;
@@ -33,6 +35,7 @@ export type Hike = {
 
 type HikeRow = {
   id: string;
+  user_id: string | null;
   title: string | null;
   status: HikeStatus;
   started_at: number;
@@ -51,6 +54,7 @@ type HikeRow = {
 function toHike(row: HikeRow): Hike {
   return {
     id: row.id,
+    userId: row.user_id,
     title: row.title,
     status: row.status,
     startedAt: row.started_at,
@@ -71,17 +75,46 @@ function toHike(row: HikeRow): Hike {
 export type ServerStats = Pick<Hike, 'distanceM' | 'elevationGainM' | 'movingTimeS'>;
 
 /**
- * Uploaded hikes still showing the phone's estimate, newest first: the ones
- * to ask the server about. At most `limit`, so one sync run stays short.
+ * The signed-in account's uploaded hikes still showing the phone's estimate,
+ * newest first: the ones to ask the server about. At most `limit`, so one
+ * sync run stays short. (The server only answers about its owner's hikes.)
  */
-export async function listHikesAwaitingServerStats(db: Db, limit = 20): Promise<string[]> {
+export async function listHikesAwaitingServerStats(
+  db: Db,
+  userId: string,
+  limit = 20,
+): Promise<string[]> {
   const rows = await db.getAllAsync<{ id: string }>(
     `SELECT id FROM hikes
-     WHERE status = 'finished' AND sync_status = 'synced' AND stats_source = 'phone'
+     WHERE user_id = ? AND status = 'finished' AND sync_status = 'synced'
+       AND stats_source = 'phone'
      ORDER BY started_at DESC LIMIT ?`,
-    [limit],
+    [userId, limit],
   );
   return rows.map((row) => row.id);
+}
+
+/**
+ * Hikes saved before the app recorded owners (user_id NULL), for
+ * claimHikes(). Each with whether it reached the server: only those can be
+ * checked there.
+ */
+export async function listUnownedHikes(
+  db: Db,
+): Promise<{ id: string; uploaded: boolean }[]> {
+  const rows = await db.getAllAsync<{ id: string; sync_status: SyncStatus }>(
+    'SELECT id, sync_status FROM hikes WHERE user_id IS NULL ORDER BY started_at',
+  );
+  return rows.map((row) => ({ id: row.id, uploaded: row.sync_status === 'synced' }));
+}
+
+/** Records that these hikes belong to `userId` (only hikes without an owner yet). */
+export async function setHikeOwner(db: Db, ids: readonly string[], userId: string): Promise<void> {
+  if (ids.length === 0) return;
+  await db.runAsync(
+    `UPDATE hikes SET user_id = ? WHERE user_id IS NULL AND id IN (${ids.map(() => '?').join(', ')})`,
+    [userId, ...ids],
+  );
 }
 
 /**
@@ -101,6 +134,8 @@ export async function saveServerStats(db: Db, id: string, stats: ServerStats): P
 /** A hike read from a GPX file, ready to save (see features/gpx). */
 export type ImportedHikeInput = {
   id: string;
+  /** The signed-in account importing it. */
+  userId: string;
   title: string | null;
   startedAt: number;
   endedAt: number;
@@ -118,11 +153,12 @@ export async function createImportedHike(db: Db, input: ImportedHikeInput): Prom
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO hikes
-         (id, title, status, started_at, ended_at, client_updated_at, source, import_file_uri,
-          distance_m, elevation_gain_m, moving_time_s)
-       VALUES (?, ?, 'finished', ?, ?, ?, 'imported', ?, ?, ?, ?)`,
+         (id, user_id, title, status, started_at, ended_at, client_updated_at, source,
+          import_file_uri, distance_m, elevation_gain_m, moving_time_s)
+       VALUES (?, ?, ?, 'finished', ?, ?, ?, 'imported', ?, ?, ?, ?)`,
       [
         input.id,
+        input.userId,
         input.title,
         input.startedAt,
         input.endedAt,
@@ -141,21 +177,23 @@ export async function createImportedHike(db: Db, input: ImportedHikeInput): Prom
 }
 
 /**
- * A hike on this phone that overlaps the time from `startedAt` to `endedAt`,
- * or null. The server refuses an import that overlaps another hike
- * (HIKE_OVERLAPS: likely the same hike, recorded here and exported from a
- * watch), so the phone checks first and says so right away.
+ * A hike of this account on this phone that overlaps the time from
+ * `startedAt` to `endedAt`, or null. The server refuses an import that
+ * overlaps another of the hiker's hikes (HIKE_OVERLAPS: likely the same hike,
+ * recorded here and exported from a watch), so the phone checks first and
+ * says so right away. Other accounts' hikes don't count.
  */
 export async function findOverlappingHike(
   db: Db,
+  userId: string,
   startedAt: number,
   endedAt: number,
 ): Promise<{ id: string; title: string | null; startedAt: number } | null> {
   const row = await db.getFirstAsync<{ id: string; title: string | null; started_at: number }>(
     `SELECT id, title, started_at FROM hikes
-     WHERE started_at <= ? AND COALESCE(ended_at, started_at) >= ?
+     WHERE user_id = ? AND started_at <= ? AND COALESCE(ended_at, started_at) >= ?
      ORDER BY started_at LIMIT 1`,
-    [endedAt, startedAt],
+    [userId, endedAt, startedAt],
   );
   return row ? { id: row.id, title: row.title, startedAt: row.started_at } : null;
 }
@@ -165,14 +203,20 @@ export async function clearImportFile(db: Db, id: string): Promise<void> {
   await db.runAsync('UPDATE hikes SET import_file_uri = NULL WHERE id = ?', [id]);
 }
 
-/** Starts a new hike in the "recording" state. Works offline: the id is made here. */
-export async function createHike(db: Db, startedAt: number = Date.now()): Promise<Hike> {
+/**
+ * Starts a new hike for the signed-in account (`userId`) in the "recording"
+ * state. Works offline: the id is made here.
+ */
+export async function createHike(
+  db: Db,
+  userId: string,
+  startedAt: number = Date.now(),
+): Promise<Hike> {
   const id = uuidv7(startedAt);
-  await db.runAsync('INSERT INTO hikes (id, started_at, client_updated_at) VALUES (?, ?, ?)', [
-    id,
-    startedAt,
-    startedAt,
-  ]);
+  await db.runAsync(
+    'INSERT INTO hikes (id, user_id, started_at, client_updated_at) VALUES (?, ?, ?, ?)',
+    [id, userId, startedAt, startedAt],
+  );
   const hike = await getHike(db, id);
   if (!hike) throw new Error(`Hike ${id} was not saved`);
   return hike;
@@ -187,22 +231,24 @@ export async function getHike(db: Db, id: string): Promise<Hike | null> {
 export type HistoryHike = Hike & { pointCount: number };
 
 /**
- * Every finished hike on this phone, newest first, for the hike history.
- * Hikes still being recorded or paused aren't history yet: they show on
- * the Record screen.
+ * The signed-in account's finished hikes on this phone, newest first, for
+ * the hike history. Hikes still being recorded or paused aren't history yet:
+ * they show on the Record screen. Other accounts' hikes stay on the phone
+ * but aren't shown.
  *
  * Hikes without a single GPS point are left out (e.g. finished before the
  * first fix arrived). They have no route or stats to show, and the outbox
  * never uploads them, so they'd say "Pending" forever.
  */
-export async function listFinishedHikes(db: Db): Promise<HistoryHike[]> {
+export async function listFinishedHikes(db: Db, userId: string): Promise<HistoryHike[]> {
   // The count reads the (hike_id, seq) primary key, so it doesn't scan the points.
   const rows = await db.getAllAsync<HikeRow & { point_count: number }>(
     `SELECT h.*, (SELECT COUNT(*) FROM track_points p WHERE p.hike_id = h.id) AS point_count
      FROM hikes h
-     WHERE h.status = 'finished'
+     WHERE h.user_id = ? AND h.status = 'finished'
        AND EXISTS (SELECT 1 FROM track_points p WHERE p.hike_id = h.id)
      ORDER BY h.started_at DESC`,
+    [userId],
   );
   return rows.map((row) => ({ ...toHike(row), pointCount: row.point_count }));
 }
@@ -210,6 +256,8 @@ export async function listFinishedHikes(db: Db): Promise<HistoryHike[]> {
 /**
  * The hike GPS points should go to: the newest one that is recording. Null
  * while paused or finished, so late fixes from the location task are dropped.
+ * Not limited to one account: the location task runs without a screen, and
+ * there is only ever one hike recording (signing out is blocked meanwhile).
  */
 export async function getRecordingHike(
   db: Db,
@@ -221,11 +269,13 @@ export async function getRecordingHike(
 }
 
 /**
- * Hikes that were never finished (recording or paused), newest first. Normally
- * at most one; more only if the app was killed mid-hike in the past.
+ * The account's hikes that were never finished (recording or paused), newest
+ * first. Normally at most one; more only if the app was killed mid-hike in
+ * the past.
  */
 export async function getUnfinishedHikes(
   db: Db,
+  userId: string,
 ): Promise<{ id: string; status: 'recording' | 'paused'; startedAt: number }[]> {
   const rows = await db.getAllAsync<{
     id: string;
@@ -233,7 +283,8 @@ export async function getUnfinishedHikes(
     started_at: number;
   }>(
     `SELECT id, status, started_at FROM hikes
-     WHERE status IN ('recording', 'paused') ORDER BY started_at DESC`,
+     WHERE user_id = ? AND status IN ('recording', 'paused') ORDER BY started_at DESC`,
+    [userId],
   );
   return rows.map((row) => ({ id: row.id, status: row.status, startedAt: row.started_at }));
 }
@@ -280,23 +331,27 @@ export async function setSyncStatus(db: Db, id: string, status: SyncStatus): Pro
 }
 
 /**
- * Finished hikes the upload gave up on (the server rejected them). They are
- * no longer in the outbox, so the sync status indicator counts them here.
+ * The account's finished hikes the upload gave up on (the server rejected
+ * them). They are no longer in the outbox, so the sync status indicator
+ * counts them here.
  */
-export async function countFailedHikes(db: Db): Promise<number> {
+export async function countFailedHikes(db: Db, userId: string): Promise<number> {
   const row = await db.getFirstAsync<{ n: number }>(
-    "SELECT COUNT(*) AS n FROM hikes WHERE status = 'finished' AND sync_status = 'failed'",
+    `SELECT COUNT(*) AS n FROM hikes
+     WHERE user_id = ? AND status = 'finished' AND sync_status = 'failed'`,
+    [userId],
   );
   return row?.n ?? 0;
 }
 
 /**
- * Puts hikes the upload gave up on back to 'pending', so they can be queued
- * again. Used when the hiker taps Retry. Returns how many were reset.
+ * Puts the account's hikes the upload gave up on back to 'pending', so they
+ * can be queued again. Used when the hiker taps Retry. Returns how many.
  */
-export async function resetFailedHikes(db: Db): Promise<number> {
+export async function resetFailedHikes(db: Db, userId: string): Promise<number> {
   const result = await db.runAsync(
-    "UPDATE hikes SET sync_status = 'pending' WHERE sync_status = 'failed'",
+    "UPDATE hikes SET sync_status = 'pending' WHERE user_id = ? AND sync_status = 'failed'",
+    [userId],
   );
   return result.changes;
 }

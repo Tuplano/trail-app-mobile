@@ -10,6 +10,9 @@ import { deletePhotoFile, uploadPhotoFile } from '../photo-files';
 import { GiveUpError, NotYetError } from '../retry';
 import { HikeNotUploadedError, uploadPost } from '../upload-post';
 
+/** The signed-in account in these tests: hikes and posts belong to an account. */
+const USER = 'user-1';
+
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (count: number) =>
     new Uint8Array(jest.requireActual('node:crypto').randomBytes(count)),
@@ -41,7 +44,7 @@ const postBodies = () => posts().filter(([path]) => path === '/api/v1/posts');
 async function sharedHike(hikeSync: 'pending' | 'synced' | 'failed' = 'synced') {
   const db = createTestDb();
   await prepareDatabase(db);
-  const hike = await createHike(db, 1000);
+  const hike = await createHike(db, USER, 1000);
   await setHikeStatus(db, hike.id, 'finished', 2000);
   await setSyncStatus(db, hike.id, hikeSync);
   const photo = (id: string) => ({
