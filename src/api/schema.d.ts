@@ -140,6 +140,26 @@ export interface paths {
         patch: operations["UsersController_updateMe"];
         trace?: never;
     };
+    "/api/v1/me/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect Google sign-in to your account
+         * @description For a password account: send a Google ID token for the Google account with the same (verified) email. Afterwards "Sign in with Google" signs in to this account; the password keeps working too. Sending the Google account already connected changes nothing.
+         */
+        post: operations["UsersController_connectGoogle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}": {
         parameters: {
             query?: never;
@@ -839,6 +859,10 @@ export interface components {
                 avatarUrl: string | null;
                 /** Format: date-time */
                 createdAt: string;
+                /** @description Can sign in with email and password (false: Google only) */
+                hasPassword: boolean;
+                /** @description Can sign in with Google. A password account connects it with POST /me/google */
+                googleConnected: boolean;
             };
             /** @description JWT. Send as "Authorization: Bearer <token>". */
             accessToken: string;
@@ -871,6 +895,10 @@ export interface components {
                 avatarUrl: string | null;
                 /** Format: date-time */
                 createdAt: string;
+                /** @description Can sign in with email and password (false: Google only) */
+                hasPassword: boolean;
+                /** @description Can sign in with Google. A password account connects it with POST /me/google */
+                googleConnected: boolean;
             };
             /** @description JWT. Send as "Authorization: Bearer <token>". */
             accessToken: string;
@@ -908,11 +936,19 @@ export interface components {
             avatarUrl: string | null;
             /** Format: date-time */
             createdAt: string;
+            /** @description Can sign in with email and password (false: Google only) */
+            hasPassword: boolean;
+            /** @description Can sign in with Google. A password account connects it with POST /me/google */
+            googleConnected: boolean;
         };
         UpdateMeDto: {
             /** @description Unique, ignoring case. Letters, numbers, and underscores. */
             username?: string;
             displayName?: string;
+        };
+        ConnectGoogleDto: {
+            /** @description The ID token from Google's sign-in SDK on the device */
+            idToken: string;
         };
         ConfirmIdentityDto: {
             /** @description For an account with a password */
@@ -2082,6 +2118,81 @@ export interface operations {
             };
             /** @description USERNAME_TAKEN */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    UsersController_connectGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectGoogleDto"];
+            };
+        };
+        responses: {
+            /** @description The user, now googleConnected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description INVALID_GOOGLE_TOKEN, UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description GOOGLE_EMAIL_MISMATCH: the Google email isn't the account's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description GOOGLE_ALREADY_CONNECTED (another Google account is) or GOOGLE_ACCOUNT_IN_USE (it signs in to another Trailing account) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TOO_MANY_REQUESTS: wait for the Retry-After header (seconds) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description GOOGLE_SIGN_IN_DISABLED: GOOGLE_CLIENT_IDS is not set */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

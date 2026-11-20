@@ -5,7 +5,7 @@ import { ApiError } from '@/api/errors';
 import { GOOGLE_WEB_CLIENT_ID } from '@/config/google';
 
 import { useAuthStore } from '../auth-store';
-import { signInWithGoogle } from '../google-sign-in';
+import { connectGoogle, signInWithGoogle } from '../google-sign-in';
 
 // The library's real response helpers check `type`; the native calls are fakes.
 jest.mock('react-native-nitro-google-signin', () => ({
@@ -17,7 +17,6 @@ jest.mock('react-native-nitro-google-signin', () => ({
     presentExplicitSignIn: jest.fn(),
   },
   isSuccessResponse: (r: { type: string }) => r.type === 'success',
-  isNoSavedCredentialFoundResponse: (r: { type: string }) => r.type === 'noSavedCredentialFound',
   isCancelledResponse: (r: { type: string }) => r.type === 'cancelled',
 }));
 jest.mock('expo-device', () => ({ modelName: 'Pixel 9' }));
@@ -33,7 +32,6 @@ const google = jest.mocked(GoogleOneTapSignIn);
 const post = jest.mocked(api.POST);
 
 const success = { type: 'success', data: { idToken: 'google-id-token', user: { email: 'maya@gmail.com' } } };
-const noSaved = { type: 'noSavedCredentialFound' };
 const cancelled = { type: 'cancelled' };
 
 const apiResult = {
@@ -60,7 +58,7 @@ beforeEach(() => {
 
 describe('signInWithGoogle', () => {
   it("sends Google's ID token to the API and signs in", async () => {
-    google.signIn.mockResolvedValue(success as never);
+    google.presentExplicitSignIn.mockResolvedValue(success as never);
 
     await expect(signInWithGoogle()).resolves.toBe(true);
 
@@ -74,18 +72,16 @@ describe('signInWithGoogle', () => {
     expect(state.session).not.toHaveProperty('isNewUser');
   });
 
-  it("falls back to Google's account chooser, then its full sign-in screen", async () => {
-    google.signIn.mockResolvedValue(noSaved as never);
-    google.createAccount.mockResolvedValue(noSaved as never);
+  it("opens Google's full chooser (with \"Add another account\"), not the last account", async () => {
     google.presentExplicitSignIn.mockResolvedValue(success as never);
 
     await expect(signInWithGoogle()).resolves.toBe(true);
-    expect(google.createAccount).toHaveBeenCalled();
+    expect(google.signIn).not.toHaveBeenCalled();
     expect(google.presentExplicitSignIn).toHaveBeenCalled();
   });
 
   it('does nothing when the hiker closes Google sign-in', async () => {
-    google.signIn.mockResolvedValue(cancelled as never);
+    google.presentExplicitSignIn.mockResolvedValue(cancelled as never);
 
     await expect(signInWithGoogle()).resolves.toBe(false);
     expect(post).not.toHaveBeenCalled();
@@ -93,7 +89,7 @@ describe('signInWithGoogle', () => {
   });
 
   it('stays signed out when the API refuses (email has a password account)', async () => {
-    google.signIn.mockResolvedValue(success as never);
+    google.presentExplicitSignIn.mockResolvedValue(success as never);
     post.mockResolvedValue({
       data: undefined,
       error: { error: { code: 'EMAIL_TAKEN', message: 'Sign in with your password.' } },
@@ -104,5 +100,57 @@ describe('signInWithGoogle', () => {
     await expect(attempt).rejects.toBeInstanceOf(ApiError);
     await expect(attempt).rejects.toMatchObject({ code: 'EMAIL_TAKEN' });
     expect(useAuthStore.getState().status).toBe('signedOut');
+  });
+});
+
+describe('connectGoogle', () => {
+  const me = { ...apiResult.user, hasPassword: true, googleConnected: false };
+
+  beforeEach(() => {
+    useAuthStore.setState({ status: 'signedIn', user: me, session: null } as never);
+    post.mockResolvedValue({
+      data: { ...me, googleConnected: true },
+      error: undefined,
+      response: new Response(),
+    } as never);
+  });
+
+  it('sends a Google ID token to /me/google and saves the connected user', async () => {
+    google.presentExplicitSignIn.mockResolvedValue(success as never);
+
+    await expect(connectGoogle()).resolves.toBe(true);
+
+    expect(post).toHaveBeenCalledWith('/api/v1/me/google', { body: { idToken: 'google-id-token' } });
+    expect(useAuthStore.getState().user).toMatchObject({ googleConnected: true });
+  });
+
+  it("opens Google's full chooser, not the account used last", async () => {
+    google.presentExplicitSignIn.mockResolvedValue(success as never);
+
+    await connectGoogle();
+
+    expect(google.signIn).not.toHaveBeenCalled();
+    expect(google.presentExplicitSignIn).toHaveBeenCalled();
+  });
+
+  it('does nothing when the hiker closes the chooser', async () => {
+    google.presentExplicitSignIn.mockResolvedValue(cancelled as never);
+
+    await expect(connectGoogle()).resolves.toBe(false);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("keeps the account as it was when the API refuses (another email's Google account)", async () => {
+    google.presentExplicitSignIn.mockResolvedValue(success as never);
+    post.mockResolvedValue({
+      data: undefined,
+      error: {
+        error: { code: 'GOOGLE_EMAIL_MISMATCH', message: 'Choose the Google account for maya@gmail.com.' },
+      },
+      response: new Response(null, { status: 403 }),
+    } as never);
+
+    await expect(connectGoogle()).rejects.toMatchObject({ code: 'GOOGLE_EMAIL_MISMATCH' });
+    expect(useAuthStore.getState().user).toMatchObject({ googleConnected: false });
   });
 });

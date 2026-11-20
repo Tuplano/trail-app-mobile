@@ -4,7 +4,9 @@ import { ApiError, errorMessage } from '@/api/errors';
  * What to tell the hiker when "Continue with Google" fails. Google sign-in has
  * no form fields, so everything is one message at the top of the screen.
  *
- * - API refusals (an ApiError) come from POST /auth/google.
+ * - API refusals (an ApiError) come from POST /auth/google or /me/google
+ *   (connecting: the API's own words, e.g. "Choose the Google account for
+ *   you@example.com.", are clear as they are).
  * - The Google library's own failures carry a `code` (its statusCodes).
  * - Anything else (offline, a bug) gets the app's usual wording.
  */
@@ -14,7 +16,7 @@ export function googleSignInMessage(error: unknown): string | null {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'EMAIL_TAKEN':
-        return 'This email already has a Trailing password. Sign in with your email and password instead.';
+        return 'This email already has a Trailing password. Sign in with your email and password, then connect Google in Settings.';
       case 'GOOGLE_EMAIL_NOT_VERIFIED':
         return "Your Google account's email isn't verified yet. Verify it with Google, then try again.";
       case 'INVALID_GOOGLE_TOKEN':

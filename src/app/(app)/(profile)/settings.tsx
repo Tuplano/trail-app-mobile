@@ -4,13 +4,24 @@ import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { FormError } from '@/components/ui/form-error';
-import { BatteryCharging, CircleDashed, SignOut, Trash, WifiHigh } from '@/components/ui/icons';
+import {
+  BatteryCharging,
+  CircleDashed,
+  GoogleLogo,
+  SignOut,
+  Trash,
+  WifiHigh,
+} from '@/components/ui/icons';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { Toggle } from '@/components/ui/toggle';
 import { signOut } from '@/features/auth/auth-api';
+import { useAuthStore } from '@/features/auth/auth-store';
+import { googleSignInMessage } from '@/features/auth/google-messages';
+import { useConnectGoogle } from '@/features/auth/google-sign-in';
 import { signOutBlocker } from '@/features/auth/sign-out-rules';
 import { usePrivacyZones } from '@/features/privacy-zones/privacy-zones-api';
+import { useRefreshMe } from '@/features/profile/profile-api';
 import { useBatteryOptimization } from '@/features/record/use-battery-optimization';
 import { SegmentRow } from '@/features/settings/segment-row';
 import { SettingsRow } from '@/features/settings/settings-row';
@@ -33,6 +44,11 @@ export default function SettingsScreen() {
   const { data: zones } = usePrivacyZones();
   const [error, setError] = useState<string | null>(null);
   const signOutBlocked = signOutBlocker(useRecorderStore((s) => s.status));
+  // Whether Google sign-in is connected. The saved user may predate these
+  // fields, so it's refreshed from GET /me when Settings opens.
+  useRefreshMe();
+  const googleConnected = useAuthStore((s) => s.user?.googleConnected === true);
+  const connectGoogle = useConnectGoogle();
 
   const toggleWifiOnly = () => {
     setError(null);
@@ -115,6 +131,18 @@ export default function SettingsScreen() {
           />
         )}
         <SettingsRow
+          icon={GoogleLogo}
+          label="Google"
+          detail={
+            googleConnected
+              ? 'Connected: you can sign in with Google'
+              : 'Connect to sign in with Google too'
+          }
+          meta={googleConnected ? undefined : connectGoogle.isPending ? '…' : 'Connect'}
+          disabled={googleConnected || connectGoogle.isPending}
+          onPress={() => connectGoogle.mutate()}
+        />
+        <SettingsRow
           icon={SignOut}
           label="Sign out"
           detail={signOutBlocked ?? undefined}
@@ -129,7 +157,7 @@ export default function SettingsScreen() {
           last
         />
       </View>
-      <FormError message={error} />
+      <FormError message={error ?? googleSignInMessage(connectGoogle.error)} />
 
       <Text style={[styles.version, { color: colors.faint }]}>
         TRAILING {version} · {Platform.OS.toUpperCase()}

@@ -10,8 +10,16 @@ describe('googleSignInMessage', () => {
     expect(googleSignInMessage(null)).toBeNull();
   });
 
-  it('sends a hiker with a password account to the password form', () => {
-    expect(googleSignInMessage(apiError('EMAIL_TAKEN', 409))).toMatch(/Sign in with your email and password/);
+  it('sends a hiker with a password account to the password form, then Settings', () => {
+    expect(googleSignInMessage(apiError('EMAIL_TAKEN', 409))).toMatch(
+      /Sign in with your email and password, then connect Google in Settings/,
+    );
+  });
+
+  it("shows the API's own words when connecting Google fails", () => {
+    expect(googleSignInMessage(apiError('GOOGLE_EMAIL_MISMATCH', 403))).toBe(
+      'API says GOOGLE_EMAIL_MISMATCH',
+    );
   });
 
   it('explains the API refusals in plain words', () => {

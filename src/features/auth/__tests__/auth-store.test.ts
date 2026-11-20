@@ -21,6 +21,8 @@ const user: User = {
   displayName: 'Maya Okafor',
   avatarUrl: null,
   createdAt: '2026-11-01T00:00:00.000Z',
+  hasPassword: true,
+  googleConnected: false,
 };
 
 const session: Session = {
