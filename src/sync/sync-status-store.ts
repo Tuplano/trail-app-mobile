@@ -30,8 +30,9 @@ export type SyncSnapshot = {
    */
   lastUploadAt: number | null;
   /**
-   * When the app last saved a hike's final numbers from the server (epoch
-   * ms); null until it does. The history and hike screens re-read then.
+   * When the app last saved something from the server: a hike's final
+   * numbers, or past hikes downloaded into History (epoch ms); null until it
+   * does. The history and hike screens re-read then.
    */
   serverStatsAt: number | null;
 };

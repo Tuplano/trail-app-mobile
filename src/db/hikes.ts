@@ -177,6 +177,62 @@ export async function createImportedHike(db: Db, input: ImportedHikeInput): Prom
 }
 
 /**
+ * Every hike id on this phone, whoever it belongs to. Downloading past hikes
+ * skips these: the phone's own copy is never replaced by the server's.
+ */
+export async function listHikeIds(db: Db): Promise<Set<string>> {
+  const rows = await db.getAllAsync<{ id: string }>('SELECT id FROM hikes');
+  return new Set(rows.map((row) => row.id));
+}
+
+/** A hike downloaded from the server, with its route, ready to save (see sync/download-hikes). */
+export type DownloadedHikeInput = {
+  id: string;
+  userId: string;
+  title: string | null;
+  source: HikeSource;
+  visibility: HikeVisibility;
+  startedAt: number;
+  endedAt: number;
+  clientUpdatedAt: number;
+  stats: ServerStats;
+  statsSource: StatsSource;
+  points: readonly NewTrackPoint[];
+};
+
+/**
+ * Saves a hike that is already on the server (recorded on another phone, or
+ * before a reinstall) so History shows it, offline too. It's saved as
+ * uploaded, so nothing sends it back. One transaction, like an import: a
+ * half-saved hike would show a broken route.
+ */
+export async function saveDownloadedHike(db: Db, input: DownloadedHikeInput): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO hikes
+         (id, user_id, title, status, started_at, ended_at, client_updated_at, sync_status,
+          visibility, source, distance_m, elevation_gain_m, moving_time_s, stats_source)
+       VALUES (?, ?, ?, 'finished', ?, ?, ?, 'synced', ?, ?, ?, ?, ?, ?)`,
+      [
+        input.id,
+        input.userId,
+        input.title,
+        input.startedAt,
+        input.endedAt,
+        input.clientUpdatedAt,
+        input.visibility,
+        input.source,
+        input.stats.distanceM,
+        input.stats.elevationGainM,
+        input.stats.movingTimeS,
+        input.statsSource,
+      ],
+    );
+    await addTrackPoints(db, input.id, input.points);
+  });
+}
+
+/**
  * A hike of this account on this phone that overlaps the time from
  * `startedAt` to `endedAt`, or null. The server refuses an import that
  * overlaps another of the hiker's hikes (HIKE_OVERLAPS: likely the same hike,

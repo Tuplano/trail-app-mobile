@@ -36,6 +36,9 @@ jest.mock('@/db/outbox', () => ({
 }));
 jest.mock('../process-outbox', () => ({ processOutbox: jest.fn() }));
 jest.mock('../claim-hikes', () => ({ claimHikes: jest.fn(async () => 0) }));
+jest.mock('../download-hikes', () => ({
+  downloadHikes: jest.fn(async () => ({ saved: 0, remaining: 0 })),
+}));
 jest.mock('../upload-hike', () => ({ uploadHike: jest.fn() }));
 
 const netState = jest.mocked(Network.getNetworkStateAsync);

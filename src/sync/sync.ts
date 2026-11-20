@@ -9,6 +9,7 @@ import type { Db } from '@/db/types';
 import { signedInUserId } from '@/features/auth/auth-store';
 
 import { claimHikes } from './claim-hikes';
+import { downloadHikes } from './download-hikes';
 
 import { processOutbox, type UploadHandlers } from './process-outbox';
 import { loadSyncCounts, useSyncStatusStore } from './sync-status-store';
@@ -67,6 +68,8 @@ const showStatus = useSyncStatusStore.getState().update;
 
 /** Accounts whose older, ownerless hikes were already checked since the app started. */
 const claimedFor = new Set<string>();
+/** Accounts whose past hikes are all on the phone, as far as this app run knows. */
+const downloadedFor = new Set<string>();
 
 /**
  * Once per account each time the app starts: gives hikes saved before the
@@ -145,6 +148,23 @@ async function scheduleRetry(): Promise<void> {
 }
 
 /**
+ * Saves the account's hikes that are on the server but not on this phone
+ * (another phone, a reinstall), a few per run until none are left; then not
+ * again until the app restarts. Never throws: History just fills in later.
+ */
+async function downloadPastHikes(userId: string): Promise<void> {
+  if (downloadedFor.has(userId)) return;
+  try {
+    const { saved, remaining } = await downloadHikes(await getDb(), userId);
+    if (saved > 0) showStatus({ serverStatsAt: Date.now() }); // History re-reads
+    if (remaining > 0) runAgain = true;
+    else downloadedFor.add(userId);
+  } catch (error) {
+    console.warn('Could not download past hikes', error);
+  }
+}
+
+/**
  * Uploads what's waiting in the outbox, if the phone is online. Safe to call
  * often: while a run is going, calls just ask for one more run afterwards
  * (something may have been queued meanwhile), so only one run is ever active.
@@ -166,6 +186,7 @@ export function requestSync(): Promise<void> {
         const userId = signedInUserId();
         if (!userId) return;
         await claimOldHikes(userId);
+        await downloadPastHikes(userId);
         await refreshStatus(); // show what's about to upload
         showStatus({ syncing: true });
         const run = await processOutbox(await getDb(), userId, HANDLERS);
