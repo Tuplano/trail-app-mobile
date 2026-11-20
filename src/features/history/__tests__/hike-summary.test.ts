@@ -6,6 +6,7 @@ import {
   formatHikeDate,
   formatHikeDuration,
   hikeTitle,
+  isHikeShared,
   statsNote,
   summarizeHistory,
 } from '../hike-summary';
@@ -207,5 +208,19 @@ describe('statsNote', () => {
 
   it('says an import shows the GPX file\'s numbers until then', () => {
     expect(statsNote({ statsSource: 'phone', source: 'imported' })).toBe('Imported from a GPX file');
+  });
+});
+
+describe('isHikeShared', () => {
+  it('is shared with a post made on this phone', () => {
+    expect(isHikeShared({ serverPostId: null }, true)).toBe(true);
+  });
+
+  it('is shared with a post on the server, made on another phone or before a reinstall', () => {
+    expect(isHikeShared({ serverPostId: '01a1f7bd-e798-77ea-bd7b-546691fa8eb0' }, false)).toBe(true);
+  });
+
+  it('is not shared with neither', () => {
+    expect(isHikeShared({ serverPostId: null }, false)).toBe(false);
   });
 });

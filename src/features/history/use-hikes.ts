@@ -9,6 +9,8 @@ import { useAuthStore } from '@/features/auth/auth-store';
 import { type SyncSnapshot, useSyncStatusStore } from '@/sync/sync-status-store';
 import { computeTrack } from '@/tracking/hike-stats';
 
+import { isHikeShared } from './hike-summary';
+
 /**
  * True when an upload run started or ended, the counts moved (hikes' badges
  * may have changed), or the server's final numbers arrived for a hike.
@@ -128,7 +130,7 @@ export function useHikeDetail(id: string | undefined): HikeDetail {
           const post = await getPostForHike(db, id);
           if (!isLatest()) return;
           loadedPath.current = { id, path };
-          setDetail({ state: 'ready', hike, path, shared: post !== null });
+          setDetail({ state: 'ready', hike, path, shared: isHikeShared(hike, post !== null) });
         } catch (error) {
           // Keep showing the hike if only a refresh failed.
           if (isLatest()) setDetail((d) => (d.state === 'ready' ? d : { state: 'failed' }));

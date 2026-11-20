@@ -122,6 +122,13 @@ export const MIGRATIONS: readonly string[] = [
   ALTER TABLE hikes ADD COLUMN user_id TEXT;
   CREATE INDEX hikes_by_user ON hikes (user_id, started_at DESC);
   `,
+
+  // 8: the hike's post on the server, for hikes shared elsewhere (another
+  // phone, before a reinstall) and downloaded here. The phone's own posts
+  // are in the posts table; either one means "already shared" (#35.2).
+  `
+  ALTER TABLE hikes ADD COLUMN server_post_id TEXT;
+  `,
 ];
 
 /** The schema version this build of the app expects. */

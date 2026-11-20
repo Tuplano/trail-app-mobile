@@ -17,7 +17,7 @@ jest.mock('expo-crypto', () => ({
 // The API is faked: each call answers like openapi-fetch ({ data } or { error, response }).
 jest.mock('@/api/client', () => ({ api: { GET: jest.fn() } }));
 
-type ServerHike = components['schemas']['HikeDto'];
+type ServerHike = components['schemas']['HikeListDto']['items'][number];
 
 /** A hike as GET /hikes lists it: finished and processed unless told otherwise. */
 function serverHike(id: string, startedAt: number, overrides: Partial<ServerHike> = {}): ServerHike {
@@ -40,6 +40,7 @@ function serverHike(id: string, startedAt: number, overrides: Partial<ServerHike
     elevationLossM: 300,
     maxAltitudeM: 2900,
     flagReason: null,
+    postId: null,
     createdAt: new Date(startedAt).toISOString(),
     updatedAt: new Date(startedAt).toISOString(),
     ...overrides,
@@ -158,6 +159,17 @@ describe('downloadHikes', () => {
       params: { path: { id: own.id } },
       parseAs: 'text',
     });
+  });
+
+  it('remembers when a downloaded hike was already shared, so it is not shared twice', async () => {
+    const db = await freshDb();
+    const postId = '01a1f7bd-e798-77ea-bd7b-546691fa8eb0';
+    fakeServer([serverHike('shared', 1000, { postId }), serverHike('not-shared', 2000)]);
+
+    await downloadHikes(db, USER);
+
+    expect((await getHike(db, 'shared'))?.serverPostId).toBe(postId);
+    expect((await getHike(db, 'not-shared'))?.serverPostId).toBeNull();
   });
 
   it('downloads a few routes per call and says how many are left', async () => {

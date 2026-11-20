@@ -21,6 +21,19 @@ export function statsNote(hike: Pick<Hike, 'statsSource' | 'source'>): string {
  * (a later task), so until then it's named after the time of day it started,
  * which is easier to tell apart in a list than a date alone.
  */
+/**
+ * Whether the hike already has a post: one made on this phone, or one on
+ * the server (shared from another phone or before a reinstall, see
+ * migration 8). Then the hike screen offers "Shared" (go to the feed)
+ * instead of a second Share, which the server would refuse: one post per hike.
+ */
+export function isHikeShared(
+  hike: Pick<Hike, 'serverPostId'>,
+  hasPostOnPhone: boolean,
+): boolean {
+  return hasPostOnPhone || hike.serverPostId !== null;
+}
+
 export function hikeTitle(hike: Pick<Hike, 'title' | 'startedAt'>): string {
   const title = hike.title?.trim();
   if (title) return title;

@@ -31,6 +31,8 @@ export type Hike = {
   importFileUri: string | null;
   /** 'server' once the server's final numbers replaced the phone's estimate. */
   statsSource: StatsSource;
+  /** Its post on the server, if it was shared from elsewhere (see migration 8). */
+  serverPostId: string | null;
 };
 
 type HikeRow = {
@@ -49,6 +51,7 @@ type HikeRow = {
   source: HikeSource;
   import_file_uri: string | null;
   stats_source: StatsSource;
+  server_post_id: string | null;
 };
 
 function toHike(row: HikeRow): Hike {
@@ -68,6 +71,7 @@ function toHike(row: HikeRow): Hike {
     source: row.source,
     importFileUri: row.import_file_uri,
     statsSource: row.stats_source,
+    serverPostId: row.server_post_id,
   };
 }
 
@@ -197,6 +201,8 @@ export type DownloadedHikeInput = {
   clientUpdatedAt: number;
   stats: ServerStats;
   statsSource: StatsSource;
+  /** Its post on the server, if it was already shared. */
+  serverPostId: string | null;
   points: readonly NewTrackPoint[];
 };
 
@@ -211,8 +217,9 @@ export async function saveDownloadedHike(db: Db, input: DownloadedHikeInput): Pr
     await db.runAsync(
       `INSERT INTO hikes
          (id, user_id, title, status, started_at, ended_at, client_updated_at, sync_status,
-          visibility, source, distance_m, elevation_gain_m, moving_time_s, stats_source)
-       VALUES (?, ?, ?, 'finished', ?, ?, ?, 'synced', ?, ?, ?, ?, ?, ?)`,
+          visibility, source, distance_m, elevation_gain_m, moving_time_s, stats_source,
+          server_post_id)
+       VALUES (?, ?, ?, 'finished', ?, ?, ?, 'synced', ?, ?, ?, ?, ?, ?, ?)`,
       [
         input.id,
         input.userId,
@@ -226,6 +233,7 @@ export async function saveDownloadedHike(db: Db, input: DownloadedHikeInput): Pr
         input.stats.elevationGainM,
         input.stats.movingTimeS,
         input.statsSource,
+        input.serverPostId,
       ],
     );
     await addTrackPoints(db, input.id, input.points);

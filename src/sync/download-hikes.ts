@@ -13,7 +13,8 @@ import { computeStats } from '@/tracking/hike-stats';
 
 import { serverStatsOf } from './server-stats';
 
-type ServerHike = components['schemas']['HikeDto'];
+/** A hike as GET /hikes lists it: the hike plus its post's id, if shared. */
+type ServerHike = components['schemas']['HikeListDto']['items'][number];
 
 /** The most GET /hikes gives per page (the API's MAX_HIKES_PER_PAGE). */
 const PAGE_SIZE = 50;
@@ -82,6 +83,7 @@ export function toDownloadedHike(
       movingTimeS: phoneStats.movingTimeS,
     },
     statsSource: serverStats ? 'server' : 'phone',
+    serverPostId: hike.postId,
     points,
   };
 }

@@ -54,6 +54,7 @@ describe('createHike', () => {
       source: 'recorded', // recorded here, not imported from a GPX file
       importFileUri: null,
       statsSource: 'phone', // the phone's estimate until the server's numbers arrive
+      serverPostId: null, // not shared from elsewhere
     });
     expect(await getHike(db, hike.id)).toEqual(hike);
   });

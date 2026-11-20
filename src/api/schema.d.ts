@@ -1238,6 +1238,11 @@ export interface components {
                 createdAt: string;
                 /** Format: date-time */
                 updatedAt: string;
+                /**
+                 * Format: uuid
+                 * @description Its post, if the hike was shared (one post per hike); null if not
+                 */
+                postId: string | null;
             }[];
             /** @description Pass as cursor for the next page; null on the last page */
             nextCursor: string | null;
@@ -1280,6 +1285,11 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /**
+             * Format: uuid
+             * @description Its post, if the hike was shared (one post per hike); null if not
+             */
+            postId: string | null;
             /** @description GeoJSON LineString; null until the hike is processed */
             route: {
                 /** @enum {string} */
