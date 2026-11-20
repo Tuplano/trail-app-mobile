@@ -8,7 +8,11 @@ import { api } from '@/api/client';
 import { toApiError } from '@/api/errors';
 import { useAuthStore } from '@/features/auth/auth-store';
 
-import { notificationAccess, type NotificationAccess } from './notification-rules';
+import {
+  isPushServiceMissing,
+  notificationAccess,
+  type NotificationAccess,
+} from './notification-rules';
 
 /** The API's id for this phone's token, kept so signing out can remove it. */
 const TOKEN_ID_KEY = 'push.tokenId';
@@ -95,7 +99,18 @@ async function register(): Promise<void> {
     return;
   }
 
-  const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+  let token: string;
+  try {
+    ({ data: token } = await Notifications.getExpoPushTokenAsync({ projectId }));
+  } catch (tokenError) {
+    if (!isPushServiceMissing(tokenError)) throw tokenError;
+    // Expected until Firebase is set up for Android pushes (left for later):
+    // retrying can't help before the next build. Local notifications still work.
+    console.log('Push notifications: Firebase not set up in this build, so no push token');
+    registeredFor = userId;
+    return;
+  }
+
   const { data, error, response } = await api.POST('/api/v1/push-tokens', {
     body: { token, platform: Platform.OS },
   });

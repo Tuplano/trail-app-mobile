@@ -78,6 +78,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4732d4a1-b2a0-4bd0-bd06-37e4092941ff"
+      }
+    },
+    "owner": "tuplano546"
   }
 }

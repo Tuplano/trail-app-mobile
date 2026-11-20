@@ -14,6 +14,21 @@ export function notificationAccess(permission: {
   return permission.canAskAgain ? 'ask' : 'off';
 }
 
+/**
+ * Whether getting a push token failed because this build has no Firebase set
+ * up (no `googleServicesFile` in app.json). Android pushes go through
+ * Firebase, so this won't change until a new build has it: the app should
+ * stop trying for this run instead of retrying on every foreground. Other
+ * failures (offline, Firebase briefly unreachable) are worth retrying.
+ */
+export function isPushServiceMissing(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.message.includes('googleServicesFile') ||
+    error.message.includes('FirebaseApp is not initialized')
+  );
+}
+
 /** The kinds of notification the API sends (trail-app-api NOTIFICATION_TYPES). */
 const PROFILE_NEWS = new Set(['achievement_unlocked', 'level_up']);
 

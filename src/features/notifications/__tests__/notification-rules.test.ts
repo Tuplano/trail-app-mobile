@@ -1,4 +1,4 @@
-import { notificationAccess, notificationTarget } from '../notification-rules';
+import { isPushServiceMissing, notificationAccess, notificationTarget } from '../notification-rules';
 
 describe('notificationAccess', () => {
   it('is on once allowed', () => {
@@ -46,5 +46,21 @@ describe('notificationTarget', () => {
     expect(notificationTarget({})).toBeNull();
     expect(notificationTarget(null)).toBeNull();
     expect(notificationTarget('achievement_unlocked')).toBeNull();
+  });
+});
+
+describe('isPushServiceMissing', () => {
+  it("is true for expo-notifications' error when the build has no Firebase", () => {
+    const error = new Error(
+      'Unable to get Firebase Messaging instance. Did you configure `googleServicesFile` path in app config? ... : Default FirebaseApp is not initialized in this process com.example. Make sure to call FirebaseApp.initializeApp(Context) first.',
+    );
+    expect(isPushServiceMissing(error)).toBe(true);
+  });
+
+  it('is false for failures worth retrying, and for non-errors', () => {
+    expect(isPushServiceMissing(new TypeError('Network request failed'))).toBe(false);
+    expect(isPushServiceMissing(new Error('SERVICE_NOT_AVAILABLE'))).toBe(false);
+    expect(isPushServiceMissing('googleServicesFile')).toBe(false);
+    expect(isPushServiceMissing(undefined)).toBe(false);
   });
 });

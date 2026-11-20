@@ -99,6 +99,27 @@ describe('registerPushToken', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
+  it('stops trying for this run when the build has no Firebase', async () => {
+    notifications.getExpoPushTokenAsync.mockRejectedValue(
+      new Error('Did you configure `googleServicesFile` path in app config?'),
+    );
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    await registerPushToken(); // doesn't throw, so nothing logs a warning
+    await registerPushToken();
+
+    expect(notifications.getExpoPushTokenAsync).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('tries again next time when getting the token failed for another reason', async () => {
+    notifications.getExpoPushTokenAsync.mockRejectedValueOnce(new Error('SERVICE_NOT_AVAILABLE'));
+    await expect(registerPushToken()).rejects.toThrow('SERVICE_NOT_AVAILABLE');
+
+    await registerPushToken();
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
   it('tries again next time when the API was out of reach', async () => {
     post.mockRejectedValueOnce(new TypeError('Network request failed'));
     await expect(registerPushToken()).rejects.toThrow('Network request failed');
