@@ -39,8 +39,21 @@ export function toApiError(error: unknown, response: Response): ApiError {
 /** fetch rejects (instead of returning a response) when there is no connection. */
 export const NETWORK_ERROR_MESSAGE = "Can't reach Trailing right now. Check your connection.";
 
+/**
+ * Whether a request failed because the server couldn't be reached (no
+ * signal, airplane mode), rather than because the server said no. The app's
+ * fetch is expo/fetch, which throws its own FetchError ("fetch failed: …",
+ * not exported, name "Error"); other fetches throw a TypeError.
+ */
+export function isNetworkError(error: unknown): boolean {
+  return (
+    error instanceof TypeError ||
+    (error instanceof Error && error.message.startsWith('fetch failed'))
+  );
+}
+
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
-  if (error instanceof TypeError) return NETWORK_ERROR_MESSAGE;
+  if (isNetworkError(error)) return NETWORK_ERROR_MESSAGE;
   return 'Something went wrong. Please try again.';
 }

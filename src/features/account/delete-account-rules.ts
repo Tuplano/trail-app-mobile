@@ -1,4 +1,4 @@
-import { ApiError, NETWORK_ERROR_MESSAGE, errorMessage } from '@/api/errors';
+import { ApiError, NETWORK_ERROR_MESSAGE, errorMessage, isNetworkError } from '@/api/errors';
 import type { RecorderStatus } from '@/tracking/recorder-store';
 
 /** Where to show why deleting didn't work: under the password, or above the button. */
@@ -14,7 +14,7 @@ export function describeDeleteError(error: unknown): DeleteProblem {
     }
     return { field: null, form: error.message };
   }
-  if (error instanceof TypeError) return { field: null, form: NETWORK_ERROR_MESSAGE };
+  if (isNetworkError(error)) return { field: null, form: NETWORK_ERROR_MESSAGE };
   return { field: null, form: errorMessage(error) };
 }
 
