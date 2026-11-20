@@ -9,6 +9,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { useSignIn } from '@/features/auth/auth-api';
+import { ContinueWithGoogle } from '@/features/auth/continue-with-google';
 import { describeAuthError, type FieldErrors, validateSignIn } from '@/features/auth/validation';
 
 export default function SignInScreen() {
@@ -67,6 +68,7 @@ export default function SignInScreen() {
           onSubmitEditing={submit}
         />
         <Button label="Sign in" onPress={submit} loading={signIn.isPending} style={styles.submit} />
+        <ContinueWithGoogle disabled={signIn.isPending} />
         <Text variant="small" color="muted2" style={styles.switch}>
           New here?{' '}
           <Link href="/sign-up" replace>

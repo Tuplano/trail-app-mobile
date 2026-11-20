@@ -9,6 +9,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { TextField } from '@/components/ui/text-field';
 import { useSignUp } from '@/features/auth/auth-api';
+import { ContinueWithGoogle } from '@/features/auth/continue-with-google';
 import { describeAuthError, type FieldErrors, validateSignUp } from '@/features/auth/validation';
 
 export default function SignUpScreen() {
@@ -104,6 +105,7 @@ export default function SignUpScreen() {
           loading={signUp.isPending}
           style={styles.submit}
         />
+        <ContinueWithGoogle disabled={signUp.isPending} />
         <Text variant="small" color="muted2" style={styles.switch}>
           Already have an account?{' '}
           <Link href="/sign-in" replace>

@@ -56,3 +56,4 @@ export { SneakerIcon as Sneaker } from 'phosphor-react-native/src/icons/Sneaker'
 export { MountainsIcon as Mountains } from 'phosphor-react-native/src/icons/Mountains';
 export { CalendarCheckIcon as CalendarCheck } from 'phosphor-react-native/src/icons/CalendarCheck';
 export { CalendarStarIcon as CalendarStar } from 'phosphor-react-native/src/icons/CalendarStar';
+export { GoogleLogoIcon as GoogleLogo } from 'phosphor-react-native/src/icons/GoogleLogo';
