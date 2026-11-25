@@ -220,6 +220,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your level, every rank track, and your latest unlocks
+         * @description Each track (distance, climb, hikes, weeks) has named ranks, Bronze to Mythic, then Prestige steps with no end: `next` always exists. Worked out on the server from your counted hikes.
+         */
+        get: operations["MyAchievementsController_progress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/progress/tracks/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One track's ladder
+         * @description Every named step, plus each step reached and the next one, with when and on which hike each was reached.
+         */
+        get: operations["MyAchievementsController_ladder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{id}/achievements": {
         parameters: {
             query?: never;
@@ -232,6 +272,46 @@ export interface paths {
          * @description Only unlocked badges. hikeId is null when you may not see that hike, and a peak badge earned on a hike you may not see is left out.
          */
         get: operations["UserAchievementsController_achievementsOf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Someone's level and rank on each track
+         * @description Totals only, so nothing here shows where they went.
+         */
+        get: operations["UserAchievementsController_progressOf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hikes/{id}/rewards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What one of your hikes earned
+         * @description Its xp, line by line, and the steps and badges it reached first. Empty until the hike is processed; nothing for a flagged or hand-logged hike.
+         */
+        get: operations["HikeRewardsController_rewards"];
         put?: never;
         post?: never;
         delete?: never;
@@ -981,9 +1061,11 @@ export interface components {
             bestStreakWeeks: number;
             xp: number;
             level: number;
+            /** @description The level's title, e.g. 'Trailblazer' for levels 5 to 9 */
+            title: string | null;
             /** @description The xp at which the current level started */
             levelMinXp: number;
-            /** @description The xp needed for the next level; null at the top level */
+            /** @description The xp needed for the next level (levels have no top) */
             nextLevelMinXp: number | null;
         };
         MyAchievementsDto: {
@@ -1020,6 +1102,200 @@ export interface components {
                 progress: number | null;
             }[];
         };
+        MyProgressDto: {
+            level: number;
+            title: string | null;
+            xp: number;
+            levelMinXp: number;
+            nextLevelMinXp: number;
+            tracks: {
+                code: string;
+                name: string;
+                description: string;
+                /** @description A Phosphor icon name */
+                icon: string;
+                /**
+                 * @description What it counts: meters walked ('distance'), meters climbed ('climb'), hikes of 1 km and 20 min moving or more ('hikes'), weeks with such a hike ('active_weeks')
+                 * @enum {string}
+                 */
+                metric: "distance" | "climb" | "hikes" | "active_weeks";
+                /** @description How far along, in the metric's unit */
+                value: number;
+                /** @description How many steps have a rank of their own */
+                namedSteps: number;
+                /** @description The highest step reached; null before the first */
+                current: {
+                    /** @description 1 is Bronze; steps go on for ever */
+                    step: number;
+                    /** @description The named rank; Mythic for every Prestige step */
+                    rank: {
+                        step: number;
+                        /** @description For picking the medal's material, e.g. 'gold' */
+                        code: string;
+                        name: string;
+                    } | null;
+                    /** @description 0 for a named rank, then 1, 2, 3... */
+                    prestige: number;
+                    /** @description 'Gold', or 'Prestige II' past the last rank */
+                    name: string;
+                    /** @description An extra name for this step, e.g. 'Everest' */
+                    title: string | null;
+                    /** @description What it takes, in the track's unit */
+                    threshold: number;
+                    /** @description Bonus xp for reaching it */
+                    xp: number;
+                } | null;
+                /** @description The step to aim for; there always is one */
+                next: {
+                    /** @description 1 is Bronze; steps go on for ever */
+                    step: number;
+                    /** @description The named rank; Mythic for every Prestige step */
+                    rank: {
+                        step: number;
+                        /** @description For picking the medal's material, e.g. 'gold' */
+                        code: string;
+                        name: string;
+                    } | null;
+                    /** @description 0 for a named rank, then 1, 2, 3... */
+                    prestige: number;
+                    /** @description 'Gold', or 'Prestige II' past the last rank */
+                    name: string;
+                    /** @description An extra name for this step, e.g. 'Everest' */
+                    title: string | null;
+                    /** @description What it takes, in the track's unit */
+                    threshold: number;
+                    /** @description Bonus xp for reaching it */
+                    xp: number;
+                };
+            }[];
+            /** @description The latest steps and badges unlocked, newest first (up to 10) */
+            recent: {
+                /** @enum {string} */
+                kind: "track_step" | "feat";
+                /** @description The track code for a step, the badge code for a feat */
+                code: string;
+                /** @description 'Distance: Gold', or the badge's name */
+                name: string;
+                icon: string;
+                /** @description For a track step */
+                step: {
+                    /** @description 1 is Bronze; steps go on for ever */
+                    step: number;
+                    /** @description The named rank; Mythic for every Prestige step */
+                    rank: {
+                        step: number;
+                        /** @description For picking the medal's material, e.g. 'gold' */
+                        code: string;
+                        name: string;
+                    } | null;
+                    /** @description 0 for a named rank, then 1, 2, 3... */
+                    prestige: number;
+                    /** @description 'Gold', or 'Prestige II' past the last rank */
+                    name: string;
+                    /** @description An extra name for this step, e.g. 'Everest' */
+                    title: string | null;
+                    /** @description What it takes, in the track's unit */
+                    threshold: number;
+                    /** @description Bonus xp for reaching it */
+                    xp: number;
+                } | null;
+                /**
+                 * Format: date-time
+                 * @description When the hike that earned it started
+                 */
+                unlockedAt: string;
+                /** Format: uuid */
+                hikeId: string | null;
+            }[];
+        };
+        TrackLadderDto: {
+            track: {
+                code: string;
+                name: string;
+                description: string;
+                /** @description A Phosphor icon name */
+                icon: string;
+                /**
+                 * @description What it counts: meters walked ('distance'), meters climbed ('climb'), hikes of 1 km and 20 min moving or more ('hikes'), weeks with such a hike ('active_weeks')
+                 * @enum {string}
+                 */
+                metric: "distance" | "climb" | "hikes" | "active_weeks";
+                /** @description How far along, in the metric's unit */
+                value: number;
+                /** @description How many steps have a rank of their own */
+                namedSteps: number;
+                /** @description The highest step reached; null before the first */
+                current: {
+                    /** @description 1 is Bronze; steps go on for ever */
+                    step: number;
+                    /** @description The named rank; Mythic for every Prestige step */
+                    rank: {
+                        step: number;
+                        /** @description For picking the medal's material, e.g. 'gold' */
+                        code: string;
+                        name: string;
+                    } | null;
+                    /** @description 0 for a named rank, then 1, 2, 3... */
+                    prestige: number;
+                    /** @description 'Gold', or 'Prestige II' past the last rank */
+                    name: string;
+                    /** @description An extra name for this step, e.g. 'Everest' */
+                    title: string | null;
+                    /** @description What it takes, in the track's unit */
+                    threshold: number;
+                    /** @description Bonus xp for reaching it */
+                    xp: number;
+                } | null;
+                /** @description The step to aim for; there always is one */
+                next: {
+                    /** @description 1 is Bronze; steps go on for ever */
+                    step: number;
+                    /** @description The named rank; Mythic for every Prestige step */
+                    rank: {
+                        step: number;
+                        /** @description For picking the medal's material, e.g. 'gold' */
+                        code: string;
+                        name: string;
+                    } | null;
+                    /** @description 0 for a named rank, then 1, 2, 3... */
+                    prestige: number;
+                    /** @description 'Gold', or 'Prestige II' past the last rank */
+                    name: string;
+                    /** @description An extra name for this step, e.g. 'Everest' */
+                    title: string | null;
+                    /** @description What it takes, in the track's unit */
+                    threshold: number;
+                    /** @description Bonus xp for reaching it */
+                    xp: number;
+                };
+            };
+            /** @description Every named step, and every step reached, plus the next one: the ladder has no top, so it stops one past where you are */
+            steps: {
+                /** @description 1 is Bronze; steps go on for ever */
+                step: number;
+                /** @description The named rank; Mythic for every Prestige step */
+                rank: {
+                    step: number;
+                    /** @description For picking the medal's material, e.g. 'gold' */
+                    code: string;
+                    name: string;
+                } | null;
+                /** @description 0 for a named rank, then 1, 2, 3... */
+                prestige: number;
+                /** @description 'Gold', or 'Prestige II' past the last rank */
+                name: string;
+                /** @description An extra name for this step, e.g. 'Everest' */
+                title: string | null;
+                /** @description What it takes, in the track's unit */
+                threshold: number;
+                /** @description Bonus xp for reaching it */
+                xp: number;
+                /** Format: date-time */
+                unlockedAt: string | null;
+                /** Format: uuid */
+                hikeId: string | null;
+            }[];
+        };
         UserAchievementsDto: {
             level: number;
             xp: number;
@@ -1051,12 +1327,129 @@ export interface components {
                 hikeId: string | null;
             }[];
         };
+        UserProgressDto: {
+            level: number;
+            title: string | null;
+            xp: number;
+            levelMinXp: number;
+            nextLevelMinXp: number;
+            tracks: {
+                code: string;
+                name: string;
+                description: string;
+                /** @description A Phosphor icon name */
+                icon: string;
+                /**
+                 * @description What it counts: meters walked ('distance'), meters climbed ('climb'), hikes of 1 km and 20 min moving or more ('hikes'), weeks with such a hike ('active_weeks')
+                 * @enum {string}
+                 */
+                metric: "distance" | "climb" | "hikes" | "active_weeks";
+                /** @description How far along, in the metric's unit */
+                value: number;
+                /** @description How many steps have a rank of their own */
+                namedSteps: number;
+                /** @description The highest step reached; null before the first */
+                current: {
+                    /** @description 1 is Bronze; steps go on for ever */
+                    step: number;
+                    /** @description The named rank; Mythic for every Prestige step */
+                    rank: {
+                        step: number;
+                        /** @description For picking the medal's material, e.g. 'gold' */
+                        code: string;
+                        name: string;
+                    } | null;
+                    /** @description 0 for a named rank, then 1, 2, 3... */
+                    prestige: number;
+                    /** @description 'Gold', or 'Prestige II' past the last rank */
+                    name: string;
+                    /** @description An extra name for this step, e.g. 'Everest' */
+                    title: string | null;
+                    /** @description What it takes, in the track's unit */
+                    threshold: number;
+                    /** @description Bonus xp for reaching it */
+                    xp: number;
+                } | null;
+                /** @description The step to aim for; there always is one */
+                next: {
+                    /** @description 1 is Bronze; steps go on for ever */
+                    step: number;
+                    /** @description The named rank; Mythic for every Prestige step */
+                    rank: {
+                        step: number;
+                        /** @description For picking the medal's material, e.g. 'gold' */
+                        code: string;
+                        name: string;
+                    } | null;
+                    /** @description 0 for a named rank, then 1, 2, 3... */
+                    prestige: number;
+                    /** @description 'Gold', or 'Prestige II' past the last rank */
+                    name: string;
+                    /** @description An extra name for this step, e.g. 'Everest' */
+                    title: string | null;
+                    /** @description What it takes, in the track's unit */
+                    threshold: number;
+                    /** @description Bonus xp for reaching it */
+                    xp: number;
+                };
+            }[];
+        };
+        HikeRewardsDto: {
+            /** @description Everything below added up */
+            xp: number;
+            events: {
+                /** @enum {string} */
+                kind: "effort" | "active_week" | "rank_up" | "feat";
+                /** @description e.g. 'Walking and climbing', 'Distance: Gold' */
+                label: string;
+                xp: number;
+            }[];
+            /** @description Steps and badges this hike reached first */
+            unlocks: {
+                /** @enum {string} */
+                kind: "track_step" | "feat";
+                /** @description The track code for a step, the badge code for a feat */
+                code: string;
+                /** @description 'Distance: Gold', or the badge's name */
+                name: string;
+                icon: string;
+                /** @description For a track step */
+                step: {
+                    /** @description 1 is Bronze; steps go on for ever */
+                    step: number;
+                    /** @description The named rank; Mythic for every Prestige step */
+                    rank: {
+                        step: number;
+                        /** @description For picking the medal's material, e.g. 'gold' */
+                        code: string;
+                        name: string;
+                    } | null;
+                    /** @description 0 for a named rank, then 1, 2, 3... */
+                    prestige: number;
+                    /** @description 'Gold', or 'Prestige II' past the last rank */
+                    name: string;
+                    /** @description An extra name for this step, e.g. 'Everest' */
+                    title: string | null;
+                    /** @description What it takes, in the track's unit */
+                    threshold: number;
+                    /** @description Bonus xp for reaching it */
+                    xp: number;
+                } | null;
+                /**
+                 * Format: date-time
+                 * @description When the hike that earned it started
+                 */
+                unlockedAt: string;
+                /** Format: uuid */
+                hikeId: string | null;
+            }[];
+        };
         NotificationListDto: {
             items: {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                type: "achievement_unlocked" | "level_up";
+                type: "achievement_unlocked" | "level_up" | "rank_up";
                 title: string;
                 body: string;
                 /** @description Details for the app, such as the badge code or the new level */
@@ -2341,6 +2734,93 @@ export interface operations {
             };
         };
     };
+    MyAchievementsController_progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyProgressDto"];
+                };
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    MyAchievementsController_ladder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A track's code, e.g. distance */
+                code: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackLadderDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description TRACK_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     UserAchievementsController_achievementsOf: {
         parameters: {
             query?: never;
@@ -2376,6 +2856,109 @@ export interface operations {
                 content?: never;
             };
             /** @description USER_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    UserAchievementsController_progressOf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Whose profile */
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProgressDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description USER_NOT_FOUND */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error, in the standard error shape */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    HikeRewardsController_rewards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: unknown;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HikeRewardsDto"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED or ACCESS_TOKEN_EXPIRED */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description HIKE_NOT_FOUND */
             404: {
                 headers: {
                     [name: string]: unknown;
