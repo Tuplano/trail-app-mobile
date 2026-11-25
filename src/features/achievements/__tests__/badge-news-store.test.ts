@@ -3,9 +3,13 @@ import { useBadgeNewsStore } from '../badge-news-store';
 
 const news = (id: string): BadgeNews => ({
   notificationId: id,
+  kind: 'badge',
   code: `code-${id}`,
   title: `Badge unlocked: ${id}`,
   body: '',
+  rank: null,
+  step: 0,
+  prestige: 0,
 });
 const store = () => useBadgeNewsStore.getState();
 

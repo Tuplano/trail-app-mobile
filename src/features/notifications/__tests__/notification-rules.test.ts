@@ -34,6 +34,12 @@ describe('notificationTarget', () => {
     });
   });
 
+  it('opens Profile for a new rank', () => {
+    expect(
+      notificationTarget({ type: 'rank_up', notificationId: 'n1', track: 'distance', step: 3 }),
+    ).toEqual({ href: '/profile', notificationId: 'n1' });
+  });
+
   it('still opens Profile when the id is missing', () => {
     expect(notificationTarget({ type: 'level_up', level: 8 })).toEqual({
       href: '/profile',

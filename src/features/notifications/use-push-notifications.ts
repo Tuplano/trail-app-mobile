@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 import { api } from '@/api/client';
 import { queryClient } from '@/api/query-client';
 import { MY_BADGES_KEY, MY_STATS_KEY } from '@/features/achievements/achievements-api';
+import { MY_PROGRESS_KEY } from '@/features/achievements/progress-api';
 import { badgeNewsFromPush } from '@/features/achievements/badge-news';
 import { checkBadgeNews } from '@/features/achievements/badge-news-check';
 import { useBadgeNewsStore } from '@/features/achievements/badge-news-store';
@@ -29,10 +30,11 @@ Notifications.setNotificationHandler({
   },
 });
 
-/** A badge or level just came in: Profile's level card and badges are out of date. */
+/** A badge, rank or level just came in: Profile's level card, ranks and badges are out of date. */
 function refreshProfileNews() {
   void queryClient.invalidateQueries({ queryKey: MY_STATS_KEY });
   void queryClient.invalidateQueries({ queryKey: MY_BADGES_KEY });
+  void queryClient.invalidateQueries({ queryKey: MY_PROGRESS_KEY });
 }
 
 function markRead(notificationId: string) {

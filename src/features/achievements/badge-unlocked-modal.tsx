@@ -1,31 +1,34 @@
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
 import { fonts } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
 
-import type { Badge } from './achievements-api';
-import { bonusXpLabel, type BadgeNews } from './badge-news';
-import { BadgeIcon } from './badge-icon';
+import { bonusXpLabel, type BadgeNews, type NewsDisplay } from './badge-news';
+import { BadgeEmblem, Medal } from './medal';
 
 /**
- * The design's celebration: the badge glowing in a big ring, "BADGE
- * UNLOCKED", its name and description, the bonus xp, then Close or View
- * badges. Until the badge list loads it shows the notification's words.
+ * The design's celebration: the badge's emblem, "BADGE UNLOCKED", its name
+ * and description, the bonus xp, then Close or View badges. A new rank shows
+ * its medal, "NEW RANK" and View ranks. The emblem springs in (still, for
+ * people who turned animations off). Until the lists load it shows the
+ * notification's words.
  */
 export function BadgeUnlockedModal({
   news,
-  badge,
+  display,
   onClose,
-  onViewBadges,
+  onView,
 }: {
   news: BadgeNews | null;
-  badge: Badge | undefined;
+  display: NewsDisplay | null;
   onClose: () => void;
-  onViewBadges: () => void;
+  onView: () => void;
 }) {
   const colors = useColors();
-  const xp = bonusXpLabel(badge?.xp);
+  const xp = bonusXpLabel(display?.xp);
+  const rank = news?.kind === 'rank';
 
   return (
     <Modal
@@ -40,23 +43,26 @@ export function BadgeUnlockedModal({
           <View
             accessibilityViewIsModal
             style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line3 }]}>
-            <View
-              style={[
-                styles.ring,
-                {
-                  borderColor: colors.accent,
-                  backgroundColor: colors.tint,
-                  boxShadow: `0 0 48px ${colors.glow}`,
-                },
-              ]}>
-              <BadgeIcon name={badge?.icon ?? ''} size={46} color={colors.accentText} />
-            </View>
-            <Text style={[styles.kicker, { color: colors.muted2 }]}>BADGE UNLOCKED</Text>
+            <Animated.View entering={ZoomIn.springify().damping(14)}>
+              {rank ? (
+                <Medal
+                  rank={news.rank}
+                  icon={display?.icon ?? ''}
+                  size={120}
+                  prestige={news.prestige}
+                />
+              ) : (
+                <BadgeEmblem unlocked icon={display?.icon ?? ''} size={120} />
+              )}
+            </Animated.View>
+            <Text style={[styles.kicker, { color: colors.muted2 }]}>
+              {rank ? 'NEW RANK' : 'BADGE UNLOCKED'}
+            </Text>
             <Text style={styles.name} accessibilityRole="header">
-              {badge?.name ?? news.title}
+              {display?.name ?? news.title}
             </Text>
             <Text style={[styles.description, { color: colors.muted }]}>
-              {badge?.description ?? news.body}
+              {display?.description ?? news.body}
             </Text>
             {xp ? (
               <View style={[styles.chip, { backgroundColor: colors.tint }]}>
@@ -78,7 +84,7 @@ export function BadgeUnlockedModal({
                 <Text style={[styles.buttonText, { color: colors.text2 }]}>Close</Text>
               </Pressable>
               <Pressable
-                onPress={onViewBadges}
+                onPress={onView}
                 accessibilityRole="button"
                 style={({ pressed }) => [
                   styles.button,
@@ -89,7 +95,7 @@ export function BadgeUnlockedModal({
                   },
                 ]}>
                 <Text style={[styles.buttonText, styles.viewText, { color: colors.accentText }]}>
-                  View badges
+                  {rank ? 'View ranks' : 'View badges'}
                 </Text>
               </Pressable>
             </View>
@@ -117,14 +123,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
-  },
-  ring: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   kicker: {
     marginTop: 6,

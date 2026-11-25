@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { HikeRewards } from '@/features/achievements/hike-rewards';
 import { ElevationChart } from '@/features/history/elevation-chart';
 import { HikeStatsGrid } from '@/features/history/hike-stats-grid';
 import { ExportGpxButton } from '@/features/gpx/export-button';
@@ -68,6 +69,8 @@ export default function HikeDetailScreen() {
 
       <HikeStatsGrid hike={hike} />
       <ElevationChart path={path} />
+      {/* Its xp and what it unlocked, once the server has counted it. */}
+      <HikeRewards hikeId={hike.id} uploaded={hike.syncStatus === 'synced'} />
       {/* As in the design: Share takes two thirds of the row, GPX the rest. */}
       <View style={styles.actions}>
         <ShareButton
@@ -76,7 +79,10 @@ export default function HikeDetailScreen() {
           onPress={() =>
             shared
               ? router.navigate('/feed')
-              : router.push({ pathname: '/new-post/[hikeId]', params: { hikeId: hike.id } })
+              : router.push({
+                  pathname: '/new-post/[hikeId]',
+                  params: { hikeId: hike.id },
+                })
           }
         />
         <ExportGpxButton hike={hike} style={styles.gpx} />

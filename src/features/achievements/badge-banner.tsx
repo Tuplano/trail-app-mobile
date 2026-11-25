@@ -5,23 +5,22 @@ import { Text } from '@/components/ui/text';
 import { fonts } from '@/theme/tokens';
 import { useColors } from '@/theme/use-colors';
 
-import type { Badge } from './achievements-api';
-import type { BadgeNews } from './badge-news';
-import { BadgeIcon } from './badge-icon';
+import type { BadgeNews, NewsDisplay } from './badge-news';
+import { BadgeEmblem, Medal } from './medal';
 
 /**
  * The design's unlock banner across the top, styled like a phone
- * notification: the badge in an outlined tile, "TRAILING · now",
- * "Badge unlocked: Century" and "Your hike synced. Tap to see it."
+ * notification: the badge's or new rank's emblem, "TRAILING · now",
+ * "Badge unlocked: Century" (or "Distance: Gold") and "Your hike synced.
+ * Tap to see it."
  */
 export function BadgeBanner({
   news,
-  badge,
+  display,
   onPress,
 }: {
   news: BadgeNews;
-  /** The badge's details, once the badge list has loaded (for its icon). */
-  badge: Badge | undefined;
+  display: NewsDisplay;
   onPress: () => void;
 }) {
   const colors = useColors();
@@ -32,7 +31,7 @@ export function BadgeBanner({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${news.title}. Your hike synced.`}
-      accessibilityHint="Opens the badge"
+      accessibilityHint={news.kind === 'rank' ? 'Opens the rank' : 'Opens the badge'}
       accessibilityLiveRegion="polite"
       style={({ pressed }) => [
         styles.banner,
@@ -42,9 +41,11 @@ export function BadgeBanner({
           borderColor: colors.line3,
         },
       ]}>
-      <View style={[styles.tile, { borderColor: colors.accent }]}>
-        <BadgeIcon name={badge?.icon ?? ''} size={20} color={colors.accentHi} />
-      </View>
+      {news.kind === 'rank' ? (
+        <Medal rank={news.rank} icon={display.icon} size={40} />
+      ) : (
+        <BadgeEmblem unlocked icon={display.icon} size={40} />
+      )}
       <View style={styles.text}>
         <View style={styles.meta}>
           <Text variant="label" color="muted2">
@@ -79,14 +80,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
-  },
-  tile: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   text: {
     flex: 1,

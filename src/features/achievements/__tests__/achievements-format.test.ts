@@ -16,6 +16,11 @@ describe('levelProgress', () => {
     });
   });
 
+  it("adds the level's title when the server sends one", () => {
+    const stats = { xp: 1866, level: 6, title: 'Trailblazer', levelMinXp: 1500 };
+    expect(levelProgress({ ...stats, nextLevelMinXp: 2100 }).title).toBe('Level 6 · Trailblazer');
+  });
+
   it('starts empty at level 1 with no xp', () => {
     expect(levelProgress({ xp: 0, level: 1, levelMinXp: 0, nextLevelMinXp: 100 })).toMatchObject({
       fraction: 0,

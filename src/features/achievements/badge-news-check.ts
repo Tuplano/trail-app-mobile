@@ -3,13 +3,14 @@ import { toApiError } from '@/api/errors';
 import { queryClient } from '@/api/query-client';
 
 import { MY_BADGES_KEY, MY_STATS_KEY } from './achievements-api';
+import { MY_PROGRESS_KEY } from './progress-api';
 import { unreadBadgeNews } from './badge-news';
 import { useBadgeNewsStore } from './badge-news-store';
 
 /**
- * Asks the API for badges unlocked since they were last shown (unread
+ * Asks the API for badges and ranks reached since they were last shown (unread
  * notifications) and queues them for the banner. Profile's level card and
- * badges are refreshed too, since they changed. Throws when offline; it's
+ * ranks and badges are refreshed too, since they changed. Throws when offline; it's
  * simply tried again on the next check.
  */
 export async function checkBadgeNews(): Promise<void> {
@@ -22,6 +23,7 @@ export async function checkBadgeNews(): Promise<void> {
   useBadgeNewsStore.getState().add(news);
   void queryClient.invalidateQueries({ queryKey: MY_STATS_KEY });
   void queryClient.invalidateQueries({ queryKey: MY_BADGES_KEY });
+  void queryClient.invalidateQueries({ queryKey: MY_PROGRESS_KEY });
 }
 
 /** Once shown, an unlock is read: it won't be announced again, here or on another phone. */

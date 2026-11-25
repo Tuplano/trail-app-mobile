@@ -20,15 +20,23 @@ describe('unreadBadgeNews', () => {
     expect(unreadBadgeNews(items)).toEqual([
       {
         notificationId: 'n1',
+        kind: 'badge',
         code: 'hikes_1',
         title: 'Badge unlocked: hikes_1',
         body: 'About hikes_1',
+        rank: null,
+        step: 0,
+        prestige: 0,
       },
       {
         notificationId: 'n2',
+        kind: 'badge',
         code: 'distance_10km',
         title: 'Badge unlocked: distance_10km',
         body: 'About distance_10km',
+        rank: null,
+        step: 0,
+        prestige: 0,
       },
     ]);
   });
@@ -49,6 +57,44 @@ describe('unreadBadgeNews', () => {
     expect(unreadBadgeNews(items)).toEqual([]);
   });
 
+  it('lists new ranks with badges, in order', () => {
+    const rank = {
+      id: 'n3',
+      type: 'rank_up',
+      title: 'Climb: Gold',
+      body: '8,849 m climbed over all your hikes.',
+      data: { track: 'climb', step: 3, rank: 'gold', prestige: 0, hikeId: 'h1' },
+      readAt: null,
+      createdAt: '2026-11-11T06:00:00Z',
+    };
+    const news = unreadBadgeNews([badge('n1', 'climb_500m', '2026-11-11T06:00:01Z'), rank]);
+    expect(news.map((n) => [n.kind, n.code, n.rank, n.step])).toEqual([
+      ['rank', 'climb', 'gold', 3],
+      ['badge', 'climb_500m', null, 0],
+    ]);
+  });
+
+  it('keeps the order they were made in when they share a time', () => {
+    const at = '2026-11-11T06:00:00Z';
+    const rank = {
+      id: '01a2-0001',
+      type: 'rank_up',
+      title: 'Distance: Gold',
+      body: '150 km walked over all your hikes.',
+      data: { track: 'distance', step: 3, rank: 'gold', prestige: 0 },
+      readAt: null,
+      createdAt: at,
+    };
+    // The API lists newest first: the badge, made second, comes first.
+    const news = unreadBadgeNews([badge('01a2-0002', 'climb_500m', at), rank]);
+    expect(news.map((n) => n.code)).toEqual(['distance', 'climb_500m']);
+  });
+
+  it('skips a rank without its track', () => {
+    const noTrack = { ...badge('n1', 'x', '2026-11-11T06:00:01Z'), type: 'rank_up', data: {} };
+    expect(unreadBadgeNews([noTrack])).toEqual([]);
+  });
+
   it('skips an unlock without a badge code', () => {
     expect(unreadBadgeNews([{ ...badge('n1', 'x', '2026-11-11T06:00:01Z'), data: {} }])).toEqual(
       [],
@@ -66,9 +112,40 @@ describe('badgeNewsFromPush', () => {
       }),
     ).toEqual({
       notificationId: 'n1',
+      kind: 'badge',
       code: 'distance_100km',
       title: 'Badge unlocked: Century',
       body: 'Hike 100 km in total.',
+      rank: null,
+      step: 0,
+      prestige: 0,
+    });
+  });
+
+  it('reads a new rank from a rank push', () => {
+    expect(
+      badgeNewsFromPush({
+        title: 'Distance: Prestige II',
+        body: '6,000 km walked over all your hikes.',
+        data: {
+          type: 'rank_up',
+          notificationId: 'n2',
+          track: 'distance',
+          step: 11,
+          rank: 'mythic',
+          prestige: 2,
+          hikeId: 'h1',
+        },
+      }),
+    ).toEqual({
+      notificationId: 'n2',
+      kind: 'rank',
+      code: 'distance',
+      title: 'Distance: Prestige II',
+      body: '6,000 km walked over all your hikes.',
+      rank: 'mythic',
+      step: 11,
+      prestige: 2,
     });
   });
 

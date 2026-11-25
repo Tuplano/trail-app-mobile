@@ -26,6 +26,11 @@ export default function ProfileLayout() {
       <Stack.Screen name="edit-profile" options={{ title: '', headerBackTitle: 'Profile' }} />
       <Stack.Screen name="delete-account" options={{ title: '', headerBackTitle: 'Settings' }} />
       <Stack.Screen name="offline-maps" options={{ title: '', headerBackTitle: 'Profile' }} />
+      <Stack.Screen name="achievements/index" options={{ title: '', headerBackTitle: 'Profile' }} />
+      <Stack.Screen
+        name="achievements/[track]"
+        options={{ title: '', headerBackTitle: 'Achievements' }}
+      />
       <Stack.Screen
         name="offline-map-new"
         options={{ title: 'New region', headerBackTitle: 'Offline maps' }}

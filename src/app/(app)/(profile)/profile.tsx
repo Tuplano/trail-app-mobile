@@ -19,6 +19,8 @@ import {
 import { levelProgress, profileStats } from '@/features/achievements/achievements-format';
 import { BadgeGrid } from '@/features/achievements/badge-grid';
 import { LevelCard } from '@/features/achievements/level-card';
+import { MY_PROGRESS_KEY, useMyProgress } from '@/features/achievements/progress-api';
+import { TrackMedalRow } from '@/features/achievements/track-medal-row';
 import { useProfile } from '@/features/people/people-api';
 import { useOfflineAreasStore } from '@/features/offline-maps/offline-areas-store';
 import { followerLabel } from '@/features/people/people-cache';
@@ -36,13 +38,18 @@ export default function ProfileScreen() {
   const counts = useProfile(user?.id);
   const stats = useMyStats();
   const badges = useMyBadges();
+  const progress = useMyProgress();
 
-  // The server updates xp and badges a little after a hike uploads: look
+  // The server updates xp, ranks and badges a little after a hike uploads: look
   // again whenever the tab comes into view, if the last look is old.
   useFocusEffect(
     useCallback(() => {
       void queryClient.refetchQueries({ queryKey: MY_STATS_KEY, stale: true });
       void queryClient.refetchQueries({ queryKey: MY_BADGES_KEY, stale: true });
+      void queryClient.refetchQueries({
+        queryKey: MY_PROGRESS_KEY,
+        stale: true,
+      });
       // For the Offline maps row's "2 regions".
       useOfflineAreasStore
         .getState()
@@ -78,6 +85,9 @@ export default function ProfileScreen() {
           followers={counts.data.followerCount}
           following={counts.data.followingCount}
         />
+      ) : null}
+      {progress.data && progress.data.tracks.length > 0 ? (
+        <TrackMedalRow tracks={progress.data.tracks} />
       ) : null}
       {badges.data && badges.data.length > 0 ? <BadgeGrid badges={badges.data} /> : null}
       <ProfileLinks />
@@ -121,7 +131,10 @@ function MyProfileHeader({ user, followers }: { user: User; followers: number | 
           accessibilityLabel="Settings"
           style={({ pressed }) => [
             styles.settings,
-            { borderColor: colors.line, backgroundColor: pressed ? colors.hover : 'transparent' },
+            {
+              borderColor: colors.line,
+              backgroundColor: pressed ? colors.hover : 'transparent',
+            },
           ]}>
           <GearSix size={20} color={colors.text} />
         </Pressable>

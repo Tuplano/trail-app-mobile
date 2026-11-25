@@ -3,10 +3,12 @@ import { useEffect } from 'react';
 
 import { useMyBadges } from './achievements-api';
 import { BadgeBanner } from './badge-banner';
+import type { BadgeNews, NewsDisplay } from './badge-news';
 import { checkBadgeNews, markBadgeNewsRead } from './badge-news-check';
 import { useBadgeNewsStore } from './badge-news-store';
 import { BadgeUnlockedModal } from './badge-unlocked-modal';
 import { watchForBadges } from './badge-watch';
+import { useMyProgress } from './progress-api';
 
 /** How long the banner stays before giving way to the next one, as in the design. */
 const BANNER_MS = 7000;
@@ -16,7 +18,7 @@ function check() {
 }
 
 /**
- * Celebrates badges as they unlock (task #44): looks for new ones on launch,
+ * Celebrates badges and new ranks as they unlock (tasks #44, 45.2): looks for new ones on launch,
  * when the app comes to the front and after a hike uploads, then shows the
  * banner and, when it's tapped, the pop-up. A badge push tapped while the
  * app was closed opens the pop-up directly (see usePushNotifications).
@@ -27,7 +29,28 @@ export function BadgeUnlocks() {
   const banner = useBadgeNewsStore((s) => (s.open ? null : (s.waiting[0] ?? null)));
   const open = useBadgeNewsStore((s) => s.open);
   const badges = useMyBadges();
-  const find = (code: string) => badges.data?.find((badge) => badge.code === code);
+  const progress = useMyProgress();
+
+  // The badge's or track's icon, name and xp, once their lists have loaded.
+  const display = (news: BadgeNews): NewsDisplay => {
+    if (news.kind === 'rank') {
+      const track = progress.data?.tracks.find((t) => t.code === news.code);
+      const current = track?.current;
+      return {
+        icon: track?.icon ?? '',
+        name: news.title,
+        description: news.body,
+        xp: current && current.step === news.step ? current.xp : undefined,
+      };
+    }
+    const badge = badges.data?.find((b) => b.code === news.code);
+    return {
+      icon: badge?.icon ?? '',
+      name: badge?.name ?? news.title,
+      description: badge?.description ?? news.body,
+      xp: badge?.xp,
+    };
+  };
 
   useEffect(() => {
     const stop = watchForBadges(check);
@@ -56,17 +79,22 @@ export function BadgeUnlocks() {
         <BadgeBanner
           key={banner.notificationId}
           news={banner}
-          badge={find(banner.code)}
+          display={display(banner)}
           onPress={() => useBadgeNewsStore.getState().openBanner()}
         />
       ) : null}
       <BadgeUnlockedModal
         news={open}
-        badge={open ? find(open.code) : undefined}
+        display={open ? display(open) : null}
         onClose={close}
-        onViewBadges={() => {
+        onView={() => {
+          const shown = open;
           close();
-          router.navigate('/profile');
+          if (shown?.kind === 'rank') {
+            router.navigate({ pathname: '/achievements/[track]', params: { track: shown.code } });
+          } else {
+            router.navigate('/achievements');
+          }
         }}
       />
     </>

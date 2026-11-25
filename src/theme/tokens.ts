@@ -94,3 +94,23 @@ export const radius = {
   card: 14,
   pill: 26,
 } as const;
+
+/**
+ * Rank colours, one per rank code from the API (`ranks.code`). Not in the
+ * design file (it has no ranks yet), so set here in its muted spirit: a
+ * soft tone for the emblem's edge and icon, and a deep shade of it for the
+ * face. The same in both themes.
+ */
+export const medals = {
+  bronze: { tone: '#c38b5f', deep: '#2e1f15' },
+  silver: { tone: '#c7ccd2', deep: '#24272b' },
+  gold: { tone: '#d9b65c', deep: '#2e2612' },
+  platinum: { tone: '#a8c6cf', deep: '#1b282c' },
+  diamond: { tone: '#86cfe0', deep: '#112a32' },
+  master: { tone: '#b296de', deep: '#241c37' },
+  grandmaster: { tone: '#e0877b', deep: '#331a17' },
+  legendary: { tone: '#e9a45c', deep: '#332012' },
+  mythic: { tone: '#e6cf8f', deep: '#251d38' },
+} as const;
+
+export type MedalMaterial = { tone: string; deep: string };

@@ -30,7 +30,7 @@ export function isPushServiceMissing(error: unknown): boolean {
 }
 
 /** The kinds of notification the API sends (trail-app-api NOTIFICATION_TYPES). */
-const PROFILE_NEWS = new Set(['achievement_unlocked', 'level_up']);
+const PROFILE_NEWS = new Set(['achievement_unlocked', 'level_up', 'rank_up']);
 
 /**
  * What a notification is about, from the data the API puts in it:

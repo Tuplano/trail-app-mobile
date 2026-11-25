@@ -10,19 +10,20 @@ export type LevelProgress = {
 };
 
 /**
- * The level card's words and bar from the server's numbers. The bar fills
- * from where this level started to where the next one starts. At the top
- * level there's no next one: the bar is full. (The API has no level names
- * yet, so the design's "· Trailblazer" is left out.)
+ * The level card's words and bar from the server's numbers: "Level 7 ·
+ * Trailblazer" as in the design, once the server sends a title. The bar
+ * fills from where this level started to where the next one starts. Levels
+ * have no top now; a null next level (an older server) shows a full bar.
  */
 export function levelProgress(stats: {
   xp: number;
   level: number;
+  title?: string | null;
   levelMinXp: number;
   nextLevelMinXp: number | null;
 }): LevelProgress {
   const { xp, level, levelMinXp, nextLevelMinXp } = stats;
-  const title = `Level ${level}`;
+  const title = stats.title ? `Level ${level} · ${stats.title}` : `Level ${level}`;
   if (nextLevelMinXp === null) {
     return { title, xpLabel: `${formatCount(xp)} XP`, fraction: 1, toGo: 'Top level reached' };
   }
